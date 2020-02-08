@@ -1,13 +1,19 @@
 package com.team1816.frc2020.subsystems;
 
+import com.team1816.frc2020.Robot;
+import com.team1816.frc2020.states.SuperstructureCommand;
+import com.team1816.frc2020.states.SuperstructureState;
+import com.team1816.frc2020.states.SuperstructureStateManager;
+import com.team1816.frc2020.states.SuperstructureStateManager.WantedAction;
 import com.team1816.lib.loops.ILooper;
 import com.team1816.lib.loops.Loop;
 import com.team1816.lib.subsystems.Subsystem;
 import com.team254.lib.vision.AimingParameters;
-import com.team1816.frc2020.Robot;
 import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import java.util.Optional;
+
 
 /**
  * The superstructure subsystem is the overarching class containing all components of the superstructure: the
@@ -19,61 +25,130 @@ import java.util.Optional;
  * The Superstructure class also adjusts the overall goal based on the turret and elevator control modes.
  */
 public class Superstructure extends Subsystem {
-  private static Superstructure mInstance;
-  private Optional<AimingParameters> mLatestAimingParameters = Optional.empty();
 
-  public synchronized static Superstructure getInstance() {
-    if (mInstance == null) {
-      mInstance = new Superstructure();
+    private static Superstructure mInstance;
+    private SuperstructureState state = new SuperstructureState();
+
+    //TODO:
+    private CargoShooter cargoShooter = CargoShooter.getInstance();
+    private CargoCollector cargoCollector = CargoCollector.getInstance();
+
+
+    private SuperstructureStateManager stateMachine = new SuperstructureStateManager();
+    private WantedAction wantedAction = WantedAction.IDLE;
+
+    private Optional<AimingParameters> mLatestAimingParameters = Optional.empty();
+
+    public synchronized static Superstructure getInstance() {
+        if (mInstance == null) {
+            mInstance = new Superstructure();
+        }
+
+        return mInstance;
     }
 
-    return mInstance;
-  }
+    private Superstructure() {
+        super("superstructure");
+    }
 
-  private Superstructure() {
-      super("superstructure");
-  }
+    public SuperstructureStateManager.SubsystemState getSuperStructureState() {
+        return stateMachine.getSubsystemState();
+    }
 
-  @Override
-  public void registerEnabledLoops(ILooper mEnabledLooper) {
-    mEnabledLooper.register(new Loop() {
-      @Override
-      public void onStart(double timestamp) {
-        synchronized (Superstructure.this) {
-        }
-      }
+    public SuperstructureState getObservedState() {
+        return state;
+    }
 
-      @Override
-      public void onLoop(double timestamp) {
-        synchronized (Superstructure.this) {
-        }
-      }
+    private synchronized void updateObservedState(SuperstructureState state) {
+     //   System.out.println("observed states: arm: " + state.armPosition);
+        state.armPosition = cargoShooter.getArmEncoderPosition();
+        state.isCollectorDown = cargoCollector.isArmDown();
+    }
 
-      @Override
-      public void onStop(double timestamp) {
-        stop();
-      }
-    });
-  }
+    // Update subsystems from planner
+    synchronized void setFromCommandState(SuperstructureCommand commandState) {
+//        System.out.println("Setting shooter to position: " + commandState.armPosition +
+//            " Cargo collector down:" + commandState.collectorDown);
 
-  public synchronized Optional<AimingParameters> getLatestAimingParameters() {
-    return mLatestAimingParameters;
-  }
+                cargoShooter.setArmEncoderPosition(commandState.armPosition);
+                cargoCollector.setArm(commandState.collectorDown);
+    }
 
-  public synchronized boolean isAtDesiredState() {
-    return true;
-  }
+    @Override
+    public void registerEnabledLoops(ILooper mEnabledLooper) {
+        mEnabledLooper.register(new Loop() {
+            private SuperstructureCommand command;
 
-  @Override
-  public void stop() {
-  }
+            @Override
+            public void onStart(double timestamp) {
+            }
 
-  @Override
-  public boolean checkSystem() {
-    return false;
-  }
+            @Override
+            public void onLoop(double timestamp) {
+                synchronized (Superstructure.this) {
+                    updateObservedState(state);
 
-  @Override
-   public void initSendable(SendableBuilder builder) {
-   }
+                    SmartDashboard.setDefaultString("Superstructure/wantedAction", wantedAction.toString());
+
+                    command = stateMachine.update(timestamp, wantedAction, state);
+
+                    setFromCommandState(command);
+                }
+            }
+
+            @Override
+            public void onStop(double timestamp) {
+                stop();
+            }
+        });
+    }
+
+    public synchronized Optional<AimingParameters> getLatestAimingParameters() {
+        return mLatestAimingParameters;
+    }
+
+    public synchronized boolean isAtDesiredState() {
+        return stateMachine.getSubsystemState() == SuperstructureStateManager.SubsystemState.WANTED_POSITION;
+    }
+
+    public void setWantedAction(WantedAction wantedAction) {
+        this.wantedAction = wantedAction;
+    }
+
+   // TODO: Remove
+    public synchronized void setCollectingMode() {
+        System.err.println("Setting state to collecting mode!");
+        setWantedAction(WantedAction.GO_TO_POSITION);
+        stateMachine.setCollectorDown(true);
+        stateMachine.setArmPosition(CargoShooter.ARM_POSITION_DOWN);
+    }
+
+    public synchronized void setRocketMode() {
+        setWantedAction(WantedAction.GO_TO_POSITION);
+        stateMachine.setArmPosition(CargoShooter.ARM_POSITION_MID);
+        stateMachine.setCollectorDown(false);
+    }
+
+    public synchronized void setShootUpwardsMode() {
+        System.out.println("Setting state to normal state!");
+        setWantedAction(WantedAction.GO_TO_POSITION);
+        stateMachine.setArmPosition(CargoShooter.ARM_POSITION_UP);
+        stateMachine.setCollectorDown(false);
+    }
+
+
+
+
+    @Override
+    public void stop() {
+    }
+
+    @Override
+    public boolean checkSystem() {
+        return false;
+    }
+
+    @Override
+    public void initSendable(SendableBuilder builder) {
+    }
 }
