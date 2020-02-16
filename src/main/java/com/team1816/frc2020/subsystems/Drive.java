@@ -9,28 +9,36 @@ import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 import com.ctre.phoenix.sensors.PigeonIMU;
 import com.ctre.phoenix.sensors.PigeonIMU_StatusFrame;
-import com.team1816.frc2020.*;
+import com.team1816.frc2020.AutoModeSelector;
+import com.team1816.frc2020.Constants;
+import com.team1816.frc2020.Kinematics;
+import com.team1816.frc2020.RobotState;
 import com.team1816.frc2020.planners.DriveMotionPlanner;
-import com.team1816.lib.hardware.RobotFactory;
 import com.team1816.lib.hardware.TalonSRXChecker;
 import com.team1816.lib.loops.ILooper;
 import com.team1816.lib.loops.Loop;
+import com.team1816.lib.subsystems.PidProvider;
 import com.team1816.lib.subsystems.Subsystem;
 import com.team1816.lib.subsystems.TrackableDrivetrain;
 import com.team254.lib.control.Lookahead;
 import com.team254.lib.control.Path;
 import com.team254.lib.control.PathFollower;
-import com.team254.lib.geometry.*;
+import com.team254.lib.geometry.Pose2d;
+import com.team254.lib.geometry.Pose2dWithCurvature;
+import com.team254.lib.geometry.Rotation2d;
+import com.team254.lib.geometry.Twist2d;
 import com.team254.lib.trajectory.TrajectoryIterator;
 import com.team254.lib.trajectory.timing.TimedState;
 import com.team254.lib.util.DriveSignal;
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Solenoid;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import java.util.ArrayList;
 
-public class Drive extends Subsystem implements TrackableDrivetrain {
+public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider {
     private static Drive mInstance;
     private static final String NAME = "drivetrain";
     private static double DRIVE_ENCODER_PPR;
@@ -40,7 +48,6 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
     // hardware
     private final IMotorControllerEnhanced mLeftMaster, mRightMaster;
     private final IMotorController mLeftSlaveA, mRightSlaveA, mLeftSlaveB, mRightSlaveB;
-    private final Solenoid mShifter;
 
     // Controllers
     private PathFollower mPathFollower;
@@ -54,12 +61,15 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
     private boolean mIsBrakeMode;
     private Rotation2d mGyroOffset = Rotation2d.identity();
     private double mLastDriveCurrentSwitchTime = -1;
-    private final RobotFactory mFactory = Robot.getFactory();
+    private double openLoopRampRate;
     private BadLog mLogger;
 
     private PeriodicIO mPeriodicIO;
     private DriveMotionPlanner mMotionPlanner;
     private boolean mOverrideTrajectory = false;
+    private static final boolean IS_BADLOG_ENABLED = factory.getConstant("badLogEnabled") > 0;
+
+    private boolean isSlowMode;
 
     public synchronized static Drive getInstance() {
         if (mInstance == null) {
@@ -71,24 +81,21 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
 
     private Drive() {
         super(NAME);
-        DRIVE_ENCODER_PPR = mFactory.getConstant(NAME, "encPPR");
+        DRIVE_ENCODER_PPR = factory.getConstant(NAME, "encPPR");
         mPeriodicIO = new PeriodicIO();
 
         // start all Talons in open loop mode
-        mLeftMaster = mFactory.getMotor(NAME, "leftMain");
-        mLeftSlaveA = mFactory.getMotor(NAME, "leftSlaveOne", mLeftMaster);
-        mLeftSlaveB = mFactory.getMotor(NAME, "leftSlaveTwo", mLeftMaster);
-        mRightMaster = mFactory.getMotor(NAME, "rightMain");
-        mRightSlaveA = mFactory.getMotor(NAME, "rightSlaveOne", mRightMaster);
-        mRightSlaveB = mFactory.getMotor(NAME, "rightSlaveTwo", mRightMaster);
+        mLeftMaster = factory.getMotor(NAME, "leftMain");
+        mLeftSlaveA = factory.getMotor(NAME, "leftFollower", mLeftMaster);
+        mLeftSlaveB = factory.getMotor(NAME, "leftFollowerTwo", mLeftMaster);
+        mRightMaster = factory.getMotor(NAME, "rightMain");
+        mRightSlaveA = factory.getMotor(NAME, "rightFollower", mRightMaster);
+        mRightSlaveB = factory.getMotor(NAME, "rightFollowerTwo", mRightMaster);
 
-        mLeftMaster.configOpenloopRamp(Constants.kOpenLoopRampRate, Constants.kCANTimeoutMs);
-        mRightMaster.configOpenloopRamp(Constants.kOpenLoopRampRate, Constants.kCANTimeoutMs);
+        setOpenLoopRampRate(Constants.kOpenLoopRampRate);
 
-        mShifter = mFactory.getSolenoid("drivetrain", "kShifterSolenoidId");
-
-        if (((int) mFactory.getConstant(NAME, "pigeonOnTalon")) == 1) {
-            var pigeonId = ((int) mFactory.getConstant(NAME, "pigeonId"));
+        if (((int) factory.getConstant(NAME, "pigeonOnTalon")) == 1) {
+            var pigeonId = ((int) factory.getConstant(NAME, "pigeonId"));
             System.out.println("Pigeon on Talon " + pigeonId);
             IMotorController master = null;
             if (pigeonId == mLeftSlaveA.getDeviceID()) {
@@ -103,10 +110,10 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
             if(master != null) {
                 mPigeon = new PigeonIMU((TalonSRX) master);
             } else {
-                mPigeon = new PigeonIMU(new TalonSRX((int) mFactory.getConstant(NAME, "pigeonId")));
+                mPigeon = new PigeonIMU(new TalonSRX((int) factory.getConstant(NAME, "pigeonId")));
             }
         } else {
-            mPigeon = new PigeonIMU((int) mFactory.getConstant(NAME, "pigeonId"));
+            mPigeon = new PigeonIMU((int) factory.getConstant(NAME, "pigeonId"));
         }
         mPigeon.setStatusFramePeriod(PigeonIMU_StatusFrame.CondStatus_9_SixDeg_YPR, 10, 10);
 
@@ -137,20 +144,24 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
         return mPeriodicIO.desired_heading.getDegrees();
     }
 
+    @Override
     public double getKP() {
-        return mFactory.getConstant(NAME, "kP");
+        return factory.getConstant(NAME, "kP");
     }
 
+    @Override
     public double getKI() {
-        return mFactory.getConstant(NAME, "kI");
+        return factory.getConstant(NAME, "kI");
     }
 
+    @Override
     public double getKD() {
-        return mFactory.getConstant(NAME, "kD");
+        return factory.getConstant(NAME, "kD");
     }
 
+    @Override
     public double getKF() {
-        return mFactory.getConstant(NAME, "kF");
+        return factory.getConstant(NAME, "kF");
     }
 
     public static class PeriodicIO {
@@ -194,8 +205,13 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
     @Override
     public synchronized void writePeriodicOutputs() {
         if (mDriveControlState == DriveControlState.OPEN_LOOP) {
-            mLeftMaster.set(ControlMode.PercentOutput, mPeriodicIO.left_demand);
-            mRightMaster.set(ControlMode.PercentOutput, mPeriodicIO.right_demand);
+            if (isSlowMode) {
+                mLeftMaster.set(ControlMode.PercentOutput, mPeriodicIO.left_demand * 0.5);
+                mRightMaster.set(ControlMode.PercentOutput, mPeriodicIO.right_demand * 0.5);
+            } else {
+                mLeftMaster.set(ControlMode.PercentOutput, mPeriodicIO.left_demand);
+                mRightMaster.set(ControlMode.PercentOutput, mPeriodicIO.right_demand);
+            }
         } else {
             mLeftMaster.set(ControlMode.Velocity, mPeriodicIO.left_demand);
             mRightMaster.set(ControlMode.Velocity, mPeriodicIO.right_demand);
@@ -221,13 +237,17 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
                             break;
                         case PATH_FOLLOWING:
                             if (mPathFollower != null) {
-                                mLogger.updateTopics();
-                                mLogger.log();
+                                if (IS_BADLOG_ENABLED) {
+                                    mLogger.updateTopics();
+                                    mLogger.log();
+                                }
                                 updatePathFollower(timestamp);
                             }
                         case TRAJECTORY_FOLLOWING:
-                            mLogger.updateTopics();
-                            mLogger.log();
+                            if (IS_BADLOG_ENABLED) {
+                                mLogger.updateTopics();
+                                mLogger.log();
+                            }
                             updatePathFollower(timestamp);
                             break;
 
@@ -282,6 +302,16 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
         mPeriodicIO.right_feedforward = 0.0;
     }
 
+    public void setOpenLoopRampRate(double openLoopRampRate) {
+        this.openLoopRampRate = openLoopRampRate;
+        mLeftMaster.configOpenloopRamp(openLoopRampRate, Constants.kCANTimeoutMs);
+        mRightMaster.configOpenloopRamp(openLoopRampRate, Constants.kCANTimeoutMs);
+    }
+
+    public double getOpenLoopRampRate() {
+        return this.openLoopRampRate;
+    }
+
     /**
      * Configure talons for velocity control
      */
@@ -305,11 +335,16 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
         return mIsBrakeMode;
     }
 
+    public void setSlowMode(boolean slowMode) {
+        isSlowMode = slowMode;
+    }
+
     public void setLogger(BadLog logger){
         mLogger = logger;
     }
 
     public synchronized void setBrakeMode(boolean on) {
+        System.out.println("setBrakeMode " + on);
         if (mIsBrakeMode != on) {
             mIsBrakeMode = on;
             NeutralMode mode = on ? NeutralMode.Brake : NeutralMode.Coast;
@@ -541,15 +576,7 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
     }
 
     private TalonSRXChecker.CheckerConfig getTalonCheckerConfig(IMotorControllerEnhanced talon) {
-        return new TalonSRXChecker.CheckerConfig() {
-            {
-                mCurrentFloor = Robot.getFactory().getConstant(NAME,"currentFloorCheck");
-                mRPMFloor = Robot.getFactory().getConstant(NAME,"rpmFloorCheck");
-                mCurrentEpsilon = Robot.getFactory().getConstant(NAME,"currentEpsilonCheck");
-                mRPMEpsilon = Robot.getFactory().getConstant(NAME,"rpmEpsilonCheck");
-                mRPMSupplier = () -> talon.getSelectedSensorVelocity(0);
-            }
-        };
+        return TalonSRXChecker.CheckerConfig.getForSubsystemMotor(this, talon);
     }
 
     @Override
@@ -582,7 +609,14 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
         builder.addDoubleProperty("Right Drive Ticks", this::getRightDriveTicks, null);
         builder.addDoubleProperty("Left Drive Distance", this::getLeftEncoderDistance, null);
         builder.addDoubleProperty("Left Drive Ticks", this::getLeftDriveTicks, null);
-        // SmartDashboard.putNumber("Right Linear Velocity", getRightLinearVelocity());
+
+        SmartDashboard.putNumber("Drive/OpenLoopRampRateGetter", openLoopRampRate);
+        System.out.println("openLoopRampRate: " + openLoopRampRate);
+
+        // builder.addDoubleProperty("Drive/OpenLoopRampRateSetter", null, this::setOpenLoopRampRate);
+        // builder.addDoubleProperty("Drive/OpenLoopRampRateValue", this::getOpenLoopRampRate, null);
+
+                // SmartDashboard.putNumber("Right Linear Velocity", getRightLinearVelocity());
         // SmartDashboard.putNumber("Left Linear Velocity", getLeftLinearVelocity());
 
         // SmartDashboard.putNumber("X Error", mPeriodicIO.error.getTranslation().x());
@@ -601,7 +635,9 @@ public class Drive extends Subsystem implements TrackableDrivetrain {
         // }
 
         if (getHeading() != null) {
-            builder.addDoubleProperty("Gyro Heading", this::getHeadingDegrees, null);
+            Shuffleboard.getTab("Drive")
+                .addNumber("Gyro Heading", this::getHeadingDegrees)
+                .withWidget(BuiltInWidgets.kGyro);
         }
     }
 

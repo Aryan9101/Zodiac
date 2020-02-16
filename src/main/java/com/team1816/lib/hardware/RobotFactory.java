@@ -3,7 +3,6 @@ package com.team1816.lib.hardware;
 import com.ctre.phoenix.CANifier;
 import com.ctre.phoenix.motorcontrol.IMotorController;
 import com.ctre.phoenix.motorcontrol.IMotorControllerEnhanced;
-
 import com.team1816.frc2020.Constants;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -30,7 +29,7 @@ public class RobotFactory {
             if (isHardwareValid(subsystem.talons.get(name))) {
                 var motor = CtreMotorFactory.createDefaultTalon(subsystem.talons.get(name), false);
                 if (subsystem.invertMotor.contains(motor.getDeviceID())) {
-                    System.out.println("Inverting " + name);
+                    System.out.println("Inverting " + name + " with ID " + motor.getDeviceID());
                     motor.setInverted(true);
                 }
                 motor.config_kP(0, getConstant(subsystemName, "kP", 0), Constants.kLongCANTimeoutMs);
@@ -41,7 +40,7 @@ public class RobotFactory {
             } else if (isHardwareValid(subsystem.falcons.get(name))) {
                 var motor = CtreMotorFactory.createDefaultTalon(subsystem.falcons.get(name), true);
                 if (subsystem.invertMotor.contains(motor.getDeviceID())) {
-                    System.out.println("Inverting" + name);
+                    System.out.println("Inverting " + name + " with id " + motor.getDeviceID());
                     motor.setInverted(true);
                 }
                 motor.config_kP(0, getConstant(subsystemName, "kP", 0), Constants.kLongCANTimeoutMs);
@@ -87,6 +86,9 @@ public class RobotFactory {
         if (isHardwareValid(solenoidId)) {
             return new Solenoid(config.pcm, solenoidId);
         }
+        DriverStation.reportError(
+            "Solenoid " + name +
+                " not defined or invalid in config for subsystem " + subsystem, false);
         return null;
     }
 
@@ -95,6 +97,9 @@ public class RobotFactory {
         if (solenoidConfig != null && isHardwareValid(solenoidConfig.forward) && isHardwareValid(solenoidConfig.reverse)) {
             return new DoubleSolenoid(config.pcm, solenoidConfig.forward, solenoidConfig.reverse);
         }
+        DriverStation.reportError(
+            "DoubleSolenoid " + name +
+                " not defined or invalid in config for subsystem " + subsystem, false);
         return null;
     }
 
@@ -102,6 +107,8 @@ public class RobotFactory {
         if (isImplemented(subsystem) && getSubsystem(subsystem).canifier != null) {
             return new CANifier(getSubsystem(subsystem).canifier);
         }
+        DriverStation.reportError("CANifier ID not defined for subsystem "
+            + subsystem + "! CANifier will be NULL!", false);
         return null;
     }
 
@@ -131,6 +138,10 @@ public class RobotFactory {
 
     public YamlConfig getConfig() {
         return config;
+    }
+
+    public int getPcmId() {
+        return config.pcm;
     }
 
     public YamlConfig.SubsystemConfig getSubsystem(String subsystem) {

@@ -10,4 +10,16 @@ public interface IDriveControlBoard {
     boolean getSlowMode();
 
     boolean getDrivetrainFlipped();
+
+    boolean getCollectorDown();
+
+    boolean getCollectorUp();
+
+    boolean getFeederToTrenchSpline();
+
+    boolean getTrenchToFeederSpline();
+
+    boolean getBrakeMode();
+
+    int getDriverClimber();
 }

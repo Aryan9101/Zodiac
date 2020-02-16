@@ -27,12 +27,11 @@ public class Climber extends Subsystem {
 
     public Climber() {
         super(NAME);
-        RobotFactory factory = Robot.getFactory();
         climberMotor = factory.getMotor(NAME, "elevator");
     }
 
     public void setClimberPower(double power) {
-        climberPow = power;
+        climberPow = 0.5 * power;
         outputsChanged = true;
     }
 

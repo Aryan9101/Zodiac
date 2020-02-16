@@ -14,12 +14,16 @@ public class Infrastructure extends Subsystem {
     private static Infrastructure mInstance;
 
     private Superstructure mSuperstructure = Superstructure.getInstance();
-    private Compressor mCompressor = new Compressor(Constants.kPCMId);
+    private Compressor mCompressor;
 
     private boolean mIsManualControl = false;
+    private static final boolean COMPRESSOR_ENABLED = factory.getConstant("compressorEnabled") > 0;
 
     private Infrastructure() {
         super("Infrastructure");
+        if (Constants.kPCMId >= 0) {
+            mCompressor = new Compressor(Constants.kPCMId);
+        }
     }
 
     public static Infrastructure getInstance() {
@@ -67,11 +71,15 @@ public class Infrastructure extends Subsystem {
     }
 
     private void startCompressor() {
-        mCompressor.start();
+        if (COMPRESSOR_ENABLED) {
+            mCompressor.start();
+        }
     }
 
     private void stopCompressor() {
-        mCompressor.stop();
+        if (COMPRESSOR_ENABLED) {
+            mCompressor.stop();
+        }
     }
 
     @Override

@@ -6,6 +6,8 @@ import com.team1816.frc2020.Robot;
 import com.team1816.lib.hardware.RobotFactory;
 import com.team1816.lib.subsystems.Subsystem;
 import edu.wpi.first.wpilibj.Solenoid;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
 
 public class Hopper extends Subsystem {
     private static final String NAME = "hopper";
@@ -20,46 +22,70 @@ public class Hopper extends Subsystem {
     }
 
     // Components
-    private final Solenoid hopperSolenoid;
+    private final Solenoid feederFlap;
     private final IMotorControllerEnhanced spindexer;
     private final IMotorControllerEnhanced elevator;
 
     // State
-    private boolean hopperOut;
-    private double spindexerVelocity;
-    private double elevatorVelocity;
+    private boolean feederFlapOut;
+    private double spindexerPower;
+    private double elevatorPower;
     private boolean outputsChanged;
+    private boolean waitForShooter;
+    private int waitForShooterLoopCounter;
 
     private Hopper() {
         super(NAME);
-        RobotFactory factory = Robot.getFactory();
 
-        this.hopperSolenoid = factory.getSolenoid(NAME, "arm");
+        this.feederFlap = factory.getSolenoid(NAME, "feederFlap");
         this.spindexer = factory.getMotor(NAME, "spindexer");
         this.elevator = factory.getMotor(NAME, "elevator");
     }
 
-    public void setHopperPivot(boolean hopperOut) {
-        this.hopperOut = hopperOut;
+    public void setFeederFlap(boolean feederFlapOut) {
+        this.feederFlapOut = feederFlapOut;
         outputsChanged = true;
     }
 
     public void setSpindexer(double spindexerOutput) {
-        this.spindexerVelocity = spindexerOutput;
+        this.spindexerPower = 0.25 * spindexerOutput;
         outputsChanged = true;
     }
 
     public void setElevator(double elevatorOutput) {
-        this.elevatorVelocity = elevatorOutput;
+        this.elevatorPower = elevatorOutput;
         outputsChanged = true;
+    }
+
+    public void setIntake(double intakeOutput) {
+        setElevator(intakeOutput);
+        setSpindexer(intakeOutput);
+    }
+
+    public void waitForShooter(boolean wait) {
+        this.waitForShooter = wait;
+        this.waitForShooterLoopCounter = 0;
     }
 
     @Override
     public void writePeriodicOutputs() {
+        if (waitForShooter) {
+            if (waitForShooterLoopCounter < 10) {
+                waitForShooterLoopCounter++;
+                return;
+            }
+            if (Math.abs(Shooter.getInstance().getError()) > 7000) {
+                System.out.println("WAITING FOR SHOOTER!");
+                return;
+            } else {
+                waitForShooter = false;
+                System.out.println("Stopped waiting for shooter at " + Timer.getFPGATimestamp());
+            }
+        }
         if (outputsChanged) {
-            this.spindexer.set(ControlMode.PercentOutput, spindexerVelocity);
-            this.elevator.set(ControlMode.PercentOutput, elevatorVelocity);
-            this.hopperSolenoid.set(hopperOut);
+            this.spindexer.set(ControlMode.PercentOutput, spindexerPower);
+            this.elevator.set(ControlMode.PercentOutput, elevatorPower);
+            // this.feederFlap.set(feederFlapOut);
             outputsChanged = false;
         }
     }

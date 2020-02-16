@@ -17,20 +17,18 @@ import com.team1816.lib.subsystems.RobotStateEstimator;
 import com.team1816.lib.subsystems.SubsystemManager;
 import com.team254.lib.geometry.Pose2d;
 import com.team254.lib.geometry.Rotation2d;
-import com.team254.lib.util.CheesyDriveHelper;
-import com.team254.lib.util.CrashTracker;
-import com.team254.lib.util.LatchedBoolean;
-import com.team254.lib.wpilib.TimedRobot;
-import edu.wpi.first.wpilibj.DigitalInput;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Timer;
+import com.team254.lib.util.*;
+import edu.wpi.first.wpilibj.*;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Optional;
 
+import static com.team1816.frc2020.controlboard.ControlUtils.*;
+
 public class Robot extends TimedRobot {
     private BadLog logger;
+    private boolean isBadLogOn;
     private final Looper mEnabledLooper = new Looper();
     private final Looper mDisabledLooper = new Looper();
 
@@ -40,13 +38,17 @@ public class Robot extends TimedRobot {
 
     // subsystems
     private final Superstructure mSuperstructure = Superstructure.getInstance();
-    private final CarriageCanifier mCarriageCanifier = CarriageCanifier.getInstance();
     private final Infrastructure mInfrastructure = Infrastructure.getInstance();
     private final RobotState mRobotState = RobotState.getInstance();
     private final RobotStateEstimator mRobotStateEstimator = RobotStateEstimator.getInstance();
     private final Drive mDrive = Drive.getInstance();
     private final LedManager ledManager = LedManager.getInstance();
+    private final Collector collector = Collector.getInstance();
     private final Shooter shooter = Shooter.getInstance();
+    private final Turret turret = Turret.getInstance();
+    private final Spinner spinner = Spinner.getInstance();
+    private final Hopper hopper = Hopper.getInstance();
+    private final Climber climber = Climber.getInstance();
 
     // button placed on the robot to allow the drive team to zero the robot right
     // before the start of a match
@@ -66,6 +68,9 @@ public class Robot extends TimedRobot {
     private ActionManager actionManager;
     private CheesyDriveHelper cheesyDriveHelper = new CheesyDriveHelper();
     private AsyncTimer blinkTimer;
+
+    private PowerDistributionPanel pdp = new PowerDistributionPanel();
+
 
     Robot() {
         CrashTracker.logRobotConstruction();
@@ -91,16 +96,16 @@ public class Robot extends TimedRobot {
 
     @Override
     public void robotInit() {
-        try {
+        isBadLogOn = factory.getConstant("badLogEnabled") > 0;
 
+        try {
             var logFile = new SimpleDateFormat("MMdd_HH-mm").format(new Date());
             logger = BadLog.init("/home/lvuser/" + System.getenv("ROBOT_NAME") + "_" + logFile + ".bag");
-            DrivetrainLogger.init(mDrive);
-            BadLog.createValue("Drivetrain PID", String.format("kP = %f, kI = %f, kD = %f, kF = %f", mDrive.getKP(), mDrive.getKI(), mDrive.getKD(), mDrive.getKF()));
-            BadLog.createValue("Shooter PID", String.format("kP = %f, kI = %f, kD = %f, kF = %f", shooter.getKP(), shooter.getKI(), shooter.getKD(), shooter.getKF()));
+
             BadLog.createTopic("Timings/Looper", "ms", mEnabledLooper::getLastLoop, "hide", "join:Timings");
             BadLog.createTopic("Timings/RobotLoop", "ms", this::getLastLoop, "hide", "join:Timings");
             BadLog.createTopic("Timings/Timestamp", "s", Timer::getFPGATimestamp, "xaxis", "hide");
+
 
             BadLog.createTopic("Shooter/ActVel", "NativeUnits", shooter::getActualVelocity,
                 "hide", "join:Shooter/Velocities");
@@ -109,8 +114,26 @@ public class Robot extends TimedRobot {
             BadLog.createTopic("Shooter/Error", "NativeUnits", shooter::getError,
                 "hide", "join:Shooter/Velocities");
 
+            BadLog.createTopic("PDP/Current", "Amps", pdp::getTotalCurrent);
+
+
+            if (isBadLogOn) {
+                DrivetrainLogger.init(mDrive);
+
+                BadLog.createValue("Drivetrain PID", mDrive.pidToString());
+                BadLog.createValue("Shooter PID", shooter.pidToString());
+                BadLog.createValue("Turret PID", turret.pidToString());
+
+                BadLog.createTopic("Turret/ActPos", "NativeUnits", () -> (double) turret.getTurretPositionTicks(),
+                    "hide", "join:Turret/Positions");
+                BadLog.createTopic("Turret/TargetPos", "NativeUnits", turret::getTargetPosition,
+                    "hide", "join:Turret/Positions");
+                BadLog.createTopic("Turret/ErrorPos", "NativeUnits", turret::getPositionError);
+
+                mDrive.setLogger(logger);
+            }
+
             logger.finishInitialization();
-            mDrive.setLogger(logger);
 
             CrashTracker.logRobotInit();
 
@@ -118,12 +141,15 @@ public class Robot extends TimedRobot {
                 mRobotStateEstimator,
                 mDrive,
                 mSuperstructure,
-                mCarriageCanifier,
                 mInfrastructure,
-                shooter
+                shooter,
+                spinner,
+                collector,
+                hopper,
+                turret
+                // climber
             );
 
-            mCarriageCanifier.zeroSensors();
             mDrive.zeroSensors();
 
             mSubsystemManager.registerEnabledLoops(mEnabledLooper);
@@ -141,7 +167,45 @@ public class Robot extends TimedRobot {
             mAutoModeSelector.updateModeCreator();
 
             actionManager = new ActionManager(
+                // Driver Gamepad
+                createAction(mControlBoard::getCollectorDown, () -> {
+                    hopper.setSpindexer(1);
+                    collector.setDeployed(true);
+                }),
+                createAction(mControlBoard::getCollectorUp, () -> {
+                    collector.setDeployed(false);
+                    hopper.setSpindexer(0);
+                }),
 
+                createScalar(mControlBoard::getDriverClimber, climber::setClimberPower),
+
+                createAction(mControlBoard::getTrenchToFeederSpline, () -> {}), // TODO implement teleop splines
+                createAction(mControlBoard::getFeederToTrenchSpline, () -> {}),
+                createHoldAction(mControlBoard::getSlowMode, mDrive::setSlowMode),
+
+                // Operator Gamepad
+                createAction(mControlBoard::getSpinnerReset, spinner::initialize),
+                createHoldAction(mControlBoard::getSpinnerColor, spinner::goToColor),
+                createHoldAction(mControlBoard::getSpinnerThreeTimes,spinner::spinThreeTimes),
+
+                createAction(mControlBoard::getFeederFlapOut, () -> hopper.setFeederFlap(true)),
+                createAction(mControlBoard::getFeederFlapIn, () -> hopper.setFeederFlap(false)),
+
+                createScalar(mControlBoard::getClimber, climber::setClimberPower),
+
+                createHoldAction(mControlBoard::getTurretJogLeft, (moving) -> turret.setTurretSpeed(moving ? -0.2 : 0)),
+                createHoldAction(mControlBoard::getTurretJogRight, (moving) -> turret.setTurretSpeed(moving ? 0.2 : 0)),
+                createHoldAction(mControlBoard::getAutoHome, turret::setAutoHomeEnabled),
+                createHoldAction(mControlBoard::getShoot, (shooting) -> {
+                    shooter.setVelocity(shooting ? 52_000 : 0);
+                    hopper.waitForShooter(shooting);
+                    hopper.setIntake(shooting ? 1 : 0);
+                    if (!shooting) {
+                        shooter.coast();
+                    } else {
+                        mDrive.setOpenLoop(DriveSignal.BRAKE);
+                    }
+                })
             );
 
             blinkTimer = new AsyncTimer(
@@ -234,6 +298,8 @@ public class Robot extends TimedRobot {
 
             mEnabledLooper.start();
 
+            turret.setTurretAngle(Turret.CARDINAL_NORTH);
+
             mInfrastructure.setIsManualControl(true);
             mControlBoard.reset();
 
@@ -248,7 +314,14 @@ public class Robot extends TimedRobot {
         try {
             CrashTracker.logTestInit();
 
-            // mDisabledLooper.stop();
+            double initTime = System.currentTimeMillis();
+
+            ledManager.setLedColorBlink(255, 255, 0, 1000);
+            // Warning - blocks thread - intended behavior?
+            while (System.currentTimeMillis() - initTime <= 3000) {
+                ledManager.writePeriodicOutputs();
+            }
+
             mEnabledLooper.stop();
             mDisabledLooper.start();
 
@@ -279,26 +352,22 @@ public class Robot extends TimedRobot {
         }
     }
 
-
     @Override
     public void disabledPeriodic() {
         loopStart = Timer.getFPGATimestamp();
         try {
             if (!resetRobotButton.get() && !mHasBeenEnabled) {
                 System.out.println("Zeroing Robot!");
-                mCarriageCanifier.zeroSensors();
                 mDrive.zeroSensors();
             }
 
             // Update auto modes
             mAutoModeSelector.updateModeCreator();
 
-            mCarriageCanifier.writePeriodicOutputs();
-
             Optional<AutoModeBase> autoMode = mAutoModeSelector.getAutoMode();
             mDriveByCameraInAuto = mAutoModeSelector.isDriveByCamera();
             if (autoMode.isPresent() && autoMode.get() != mAutoModeExecutor.getAutoMode()) {
-//                System.out.println("Set auto mode to: " + autoMode.get().getClass().toString());
+                System.out.println("Set auto mode to: " + autoMode.get().getClass().toString());
                 mAutoModeExecutor.setAutoMode(autoMode.get());
             }
         } catch (Throwable t) {
@@ -319,6 +388,7 @@ public class Robot extends TimedRobot {
 
         // Interrupt if switch flipped down
         if (mWantsAutoInterrupt.update(signalToStop)) {
+            System.out.println("Auto mode interrupted ");
             mAutoModeExecutor.interrupt();
         }
 
@@ -331,14 +401,6 @@ public class Robot extends TimedRobot {
     public void teleopPeriodic() {
         loopStart = Timer.getFPGATimestamp();
 
-        String gameData = DriverStation.getInstance().getGameSpecificMessage();
-        if (gameData == null || gameData.length() == 0){
-            gameData = "0";
-        }
-        double targetVelocityPer100Ms = Double.parseDouble(gameData);
-
-        shooter.setVelocity(targetVelocityPer100Ms);
-
         try {
             manualControl();
         } catch (Throwable t) {
@@ -346,23 +408,25 @@ public class Robot extends TimedRobot {
             throw t;
         }
 
-        logger.updateTopics();
-        logger.log();
+    //    if (isBadLogOn) {
+            logger.updateTopics();
+            logger.log();
+    //    }
     }
 
     public void manualControl() {
         double throttle = mControlBoard.getThrottle();
         double turn = mControlBoard.getTurn();
-
+//
+//        double left = Util.limit(throttle + (turn * 0.55), 1);
+//        double right = Util.limit(throttle - (turn * 0.55), 1);
 
         actionManager.update();
-        mDrive.setOpenLoop(cheesyDriveHelper.cheesyDrive(throttle, turn, mControlBoard.getQuickTurn()));
-
+        mDrive.setOpenLoop(cheesyDriveHelper.cheesyDrive(throttle, turn, throttle == 0));
     }
 
     @Override
     public void testPeriodic() {
-        ledManager.writePeriodicOutputs();
     }
 }
 

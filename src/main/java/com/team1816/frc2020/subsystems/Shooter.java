@@ -4,15 +4,16 @@ import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.IMotorController;
 import com.ctre.phoenix.motorcontrol.IMotorControllerEnhanced;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
+import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 import com.team1816.frc2020.Constants;
-import com.team1816.frc2020.Robot;
-import com.team1816.lib.hardware.RobotFactory;
 import com.team1816.lib.hardware.TalonSRXChecker;
+import com.team1816.lib.subsystems.PidProvider;
 import com.team1816.lib.subsystems.Subsystem;
+import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
 
 import java.util.ArrayList;
 
-public class Shooter extends Subsystem {
+public class Shooter extends Subsystem implements PidProvider {
     private static final String NAME = "shooter";
     private static Shooter INSTANCE;
 
@@ -32,12 +33,10 @@ public class Shooter extends Subsystem {
     private final IMotorController shooterFollowerB;
     private final IMotorController shooterFollowerC;
 
-//    private final Solenoid hood;
-
     // State
     private double shooterVelocity;
-    private boolean hoodDown;
     private boolean outputsChanged;
+    private boolean coast;
 
     // Constants
     private final double kP;
@@ -48,13 +47,12 @@ public class Shooter extends Subsystem {
 
     private Shooter() {
         super(NAME);
-        RobotFactory factory = Robot.getFactory();
 
         this.shooterMain = factory.getMotor(NAME, "shooterMaster");
         this.shooterFollowerA = factory.getMotor(NAME, "shooterFollowerA", shooterMain);
         this.shooterFollowerB = factory.getMotor(NAME, "shooterFollowerB", shooterMain);
         this.shooterFollowerC = factory.getMotor(NAME, "shooterFollowerC", shooterMain);
-     //   this.hood = factory.getSolenoid(NAME, "hood");
+        //   this.hood = factory.getSolenoid(NAME, "hood");
 
         this.kP = factory.getConstant(NAME, "kP");
         this.kI = factory.getConstant(NAME, "kI");
@@ -66,22 +64,42 @@ public class Shooter extends Subsystem {
         shooterFollowerB.setNeutralMode(NeutralMode.Coast);
         shooterFollowerC.setNeutralMode(NeutralMode.Coast);
 
-        //shooterMain.configClosedloopRamp(1, Constants.kCANTimeoutMs);
-        shooterMain.setSensorPhase(true);
+        configCurrentLimits(32 /* amps */);
+
+        shooterFollowerB.setInverted(true);
+        shooterFollowerC.setInverted(true);
+
+        shooterMain.configClosedloopRamp(2, Constants.kCANTimeoutMs);
+        shooterMain.setSensorPhase(false);
     }
 
+    private void configCurrentLimits(int currentLimitAmps) {
+        ((TalonSRX) shooterMain).enableCurrentLimit(true);
+        ((TalonSRX) shooterFollowerA).enableCurrentLimit(true);
+        ((TalonSRX) shooterFollowerB).enableCurrentLimit(true);
+        ((TalonSRX) shooterFollowerC).enableCurrentLimit(true);
+        ((TalonSRX) shooterMain).configContinuousCurrentLimit(currentLimitAmps);
+        ((TalonSRX) shooterFollowerA).configContinuousCurrentLimit(currentLimitAmps);
+        ((TalonSRX) shooterFollowerB).configContinuousCurrentLimit(currentLimitAmps);
+        ((TalonSRX) shooterFollowerC).configContinuousCurrentLimit(currentLimitAmps);
+    }
+
+    @Override
     public double getKP() {
         return kP;
     }
 
+    @Override
     public double getKI() {
         return kI;
     }
 
+    @Override
     public double getKD() {
         return kD;
     }
 
+    @Override
     public double getKF() {
         return kF;
     }
@@ -99,11 +117,6 @@ public class Shooter extends Subsystem {
         setVelocity(0);
     }
 
-    public void setHoodDown(boolean hoodDown) {
-        this.hoodDown = hoodDown;
-        outputsChanged = true;
-    }
-
     public double getActualVelocity() {
         return shooterMain.getSelectedSensorVelocity(0);
     }
@@ -116,14 +129,27 @@ public class Shooter extends Subsystem {
         return shooterMain.getClosedLoopError(0);
     }
 
+    public void coast() {
+        this.coast = true;
+    }
+
     @Override
     public void writePeriodicOutputs() {
         if (outputsChanged) {
-            System.out.println("Shooter velocity: " + shooterVelocity);
-            this.shooterMain.set(ControlMode.Velocity, shooterVelocity);
-        //    this.hood.set(hoodDown);
+            if (coast) {
+                this.shooterMain.set(ControlMode.PercentOutput, 0);
+                coast = false;
+            } else {
+                this.shooterMain.set(ControlMode.Velocity, shooterVelocity);
+            }
             outputsChanged = false;
         }
+    }
+
+    @Override
+    public void initSendable(SendableBuilder builder) {
+        builder.addBooleanProperty("Shooter/IsAtSpeed", () -> this.getError() < 7000, null);
+        builder.addDoubleProperty("Shooter/ShooterVelocity", this::getActualVelocity, this::setVelocity);
     }
 
     @Override
@@ -132,15 +158,7 @@ public class Shooter extends Subsystem {
     }
 
     private TalonSRXChecker.CheckerConfig getTalonCheckerConfig(IMotorControllerEnhanced talon) {
-        return new TalonSRXChecker.CheckerConfig() {
-            {
-                mCurrentFloor = Robot.getFactory().getConstant(NAME,"currentFloorCheck");
-                mRPMFloor = Robot.getFactory().getConstant(NAME,"rpmFloorCheck");
-                mCurrentEpsilon = Robot.getFactory().getConstant(NAME,"currentEpsilonCheck");
-                mRPMEpsilon = Robot.getFactory().getConstant(NAME,"rpmEpsilonCheck");
-                mRPMSupplier = () -> talon.getSelectedSensorVelocity(0);
-            }
-        };
+        return TalonSRXChecker.CheckerConfig.getForSubsystemMotor(this, talon);
     }
 
     @Override
@@ -148,7 +166,7 @@ public class Shooter extends Subsystem {
         boolean checkShooter = TalonSRXChecker.checkMotors(this,
             new ArrayList<>() {
                 {
-                    add(new TalonSRXChecker.TalonSRXConfig("left_master", shooterMain));
+                    add(new TalonSRXChecker.TalonSRXConfig("shooterMain", shooterMain));
                 }
             }, getTalonCheckerConfig(shooterMain));
 

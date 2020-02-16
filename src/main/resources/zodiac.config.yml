@@ -1,83 +1,94 @@
 subsystems:
-    drivetrain: #TODO: tuning and measure encPPR
+    drivetrain:
         implemented: true
         falcons:
-            leftMain: 14
-            leftFollower: 15
-            rightMain: 1
-            rightFollower: 0
+            leftMain: 17
+            leftFollower: 1
+            leftFollowerTwo: -1
+            rightMain: 14
+            rightFollower: 15
+            rightFollowerTwo: -1
+        invertMotor:
+            - 17
         constants:
-            pigeonId: -1
+            pigeonId: 9
             pigeonOnTalon: -1
-            kP: 0
-            kI: 0
-            kD: 0
-            kF: 0
+            kP: 0.13 # 0.18 # TODO: tune PID, these are temporary PID values from Zeta
+            kI: 0.013 # 0.018
+            kD: 4.0 # 3.6
+            kF: 0.0475813
             iZone: 0
-            encPPR: 0
+            encPPR: 22220.8
             currentFloorCheck: .12
             currentEpsilonCheck: .2
             rpmFloorCheck: 2000
             rpmEpsilonCheck: 60
-            openLoopRampRate: 1
+            openLoopRampRate: 0.8
     climber:
         implemented: false
         talons:
             elevator: 0
     collector:
-        implemented: false
+        implemented: true
         talons:
-            intake: -1
+            intake: 11
         solenoids:
-            arm: -1
-    hopper:
-        implemented: false
-        talon:
-            spindexer: -1
-            elevator: -1
-        solenoids:
-            arm: -1 # should find a better name - not really an "arm"
-    shooter:
-        implemented: false
-        talons:
-            shooterMaster: 2
-            shooterFollowerA: 4
-            shooterFollowerB: 10
-            shooterFollowerC: 11
-        invertMotor:
-            - 2
-        solenoids:
-            hood: -1
-        constants: #TODO: need tuning [P, I, D]
-            kP: 0.025
+            arm: 0
+        constants:
+            kP: 0.2
             kI: 0
-            kD: 1
+            kD: 0
+            kF: 0
+    hopper:
+        implemented: true
+        talons:
+            spindexer: 4 # 12
+            elevator: 5 # 2
+        invertMotor:
+            - 4
+        solenoids:
+            feederFlap: -1
+    shooter:
+        implemented: true
+        talons:
+            shooterMaster: 13
+            shooterFollowerA: 3
+            shooterFollowerB: 12 #4
+            shooterFollowerC: 2 # 5
+        constants: #TODO: need tuning [P, I, D]
+            kP: 0.30
+            kI: 0
+            kD: 4.5
             kF: 0.00953253
             currentFloorCheck: .12
             currentEpsilonCheck: .2
             rpmFloorCheck: 2000
             rpmEpsilonCheck: 60
-    turret: #TODO: need to measure encPPR
-        implemented: false
+    turret:
+        implemented: true
         talons:
-            turret: -1
-        constants:
-            encPPR: 0
-    canifier:
-        implemented: false
-        constants:
-            canId: 0
+            turret: 10
+        constants: # TODO: tune [P, I, D]
+            kP: 2.85
+            kI: 0
+            kD: 0
+            kF: 0 # Should be 0 for position control
+            encPPR: 4124.6
+            minPos: -3176
+            maxPos: -1101
     ledmanager:
         implemented: false
         canifier: 0
-pcm: 0
+pcm: 8
 constants: #TODO: update constants for new robot
-    wheelDiameter: 6.25 #inches
+    wheelDiameter: 6.29 #inches
     trackWidth: 25 #inches
-    maxVel: 40 #inch/s
-    maxAccel: 80 #inch/s^2
+    maxVel: 120 #inch/s
+    maxAccel: 40 #inch/s^2
+    sensorPhase: 0
     kLooperDt: .030
     kTrackScrubFactor: 1.0
-    kPCMId: 0
     pathKs: 2
-    verbose: 0
+    verbose: 0 # O or 1
+    compressorEnabled: 1 # 0 or 1
+    badLogEnabled: 1
