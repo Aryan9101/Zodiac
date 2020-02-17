@@ -1,25 +1,25 @@
 package com.team1816.frc2020.states;
 
-import com.team1816.frc2019.subsystems.CargoShooter;
 import com.team254.lib.util.Util;
 
 public class SuperstructureState {
-    public int armPosition;
-    public boolean isCollectorDown;
+    public double shooterVelocity;
+    public double turretPosition;
+    public boolean hopperDeployed;
 
-    public SuperstructureState(int armPosition, boolean isCollectorDown) {
-        this.armPosition = armPosition;
-        this.isCollectorDown = isCollectorDown;
+//    Turret:
+//    maxPos (and degrees):
+//    minPos (and degrees:
+
+    public SuperstructureState(int shooterVelocity, double turretPosition, boolean hopperDeployed) {
+        this.shooterVelocity = shooterVelocity;
+        this.turretPosition = turretPosition;
+        this.hopperDeployed = hopperDeployed;
     }
-
-//    maxPos: 4027
-//    midPos: 3230
-//    minPos: 3015
 
     public SuperstructureState() {
-        this(CargoShooter.ARM_POSITION_UP, false);
+        this(/*TODO: update*/0, /*TODO: update*/0, false);
     }
-
 
     public boolean inIllegalZone(boolean allowSmallErrors) {
         return false;
@@ -39,8 +39,9 @@ public class SuperstructureState {
     public String toString() {
         return
             "SuperstructureState {"
-                + "  armPosition = " + armPosition
-                + "  collectorDown = " + isCollectorDown
-                + "}";
+                + "  shooterVelocity = " + shooterVelocity
+                + "  turretPosition = " + turretPosition
+                + "  hopperDeployed = " + hopperDeployed
+                + " }";
     }
 }

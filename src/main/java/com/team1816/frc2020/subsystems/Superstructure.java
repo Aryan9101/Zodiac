@@ -30,9 +30,10 @@ public class Superstructure extends Subsystem {
     private SuperstructureState state = new SuperstructureState();
 
     //TODO:
-    private CargoShooter cargoShooter = CargoShooter.getInstance();
-    private CargoCollector cargoCollector = CargoCollector.getInstance();
 
+    private Shooter shooter = Shooter.getInstance();
+    private Hopper hopper = Hopper.getInstance();
+    private Turret turret = Turret.getInstance();
 
     private SuperstructureStateManager stateMachine = new SuperstructureStateManager();
     private WantedAction wantedAction = WantedAction.IDLE;
@@ -60,18 +61,17 @@ public class Superstructure extends Subsystem {
     }
 
     private synchronized void updateObservedState(SuperstructureState state) {
-     //   System.out.println("observed states: arm: " + state.armPosition);
-        state.armPosition = cargoShooter.getArmEncoderPosition();
-        state.isCollectorDown = cargoCollector.isArmDown();
+        state.shooterVelocity = shooter.getActualVelocity();
+        state.turretPosition = turret.getTurretPositionDegrees(); //TODO: maybe ticks?
+        state.hopperDeployed = hopper.isDeployed(); //TODO: create method for checking hopper state
     }
 
     // Update subsystems from planner
     synchronized void setFromCommandState(SuperstructureCommand commandState) {
-//        System.out.println("Setting shooter to position: " + commandState.armPosition +
-//            " Cargo collector down:" + commandState.collectorDown);
 
-                cargoShooter.setArmEncoderPosition(commandState.armPosition);
-                cargoCollector.setArm(commandState.collectorDown);
+        shooter.setVelocity(commandState.shooterVelocity);
+        turret.setTurretAngle(commandState.turretAngle);
+        hopper.setIntake(commandState.hopperIntake); //TODO: how to manipulate hopper?
     }
 
     @Override
@@ -103,6 +103,7 @@ public class Superstructure extends Subsystem {
         });
     }
 
+    //TODO: Aiming parameters will involve Turret and Vision
     public synchronized Optional<AimingParameters> getLatestAimingParameters() {
         return mLatestAimingParameters;
     }
@@ -135,8 +136,6 @@ public class Superstructure extends Subsystem {
         stateMachine.setArmPosition(CargoShooter.ARM_POSITION_UP);
         stateMachine.setCollectorDown(false);
     }
-
-
 
 
     @Override
