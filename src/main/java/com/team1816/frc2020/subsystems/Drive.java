@@ -67,7 +67,6 @@ public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider
     private PeriodicIO mPeriodicIO;
     private DriveMotionPlanner mMotionPlanner;
     private boolean mOverrideTrajectory = false;
-    private static final boolean IS_BADLOG_ENABLED = factory.getConstant("badLogEnabled") > 0;
 
     private boolean isSlowMode;
 
@@ -237,14 +236,14 @@ public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider
                             break;
                         case PATH_FOLLOWING:
                             if (mPathFollower != null) {
-                                if (IS_BADLOG_ENABLED) {
+                                if (Constants.kIsBadlogEnabled) {
                                     mLogger.updateTopics();
                                     mLogger.log();
                                 }
                                 updatePathFollower(timestamp);
                             }
                         case TRAJECTORY_FOLLOWING:
-                            if (IS_BADLOG_ENABLED) {
+                            if (Constants.kIsBadlogEnabled) {
                                 mLogger.updateTopics();
                                 mLogger.log();
                             }
@@ -610,8 +609,7 @@ public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider
         builder.addDoubleProperty("Left Drive Distance", this::getLeftEncoderDistance, null);
         builder.addDoubleProperty("Left Drive Ticks", this::getLeftDriveTicks, null);
 
-        SmartDashboard.putNumber("Drive/OpenLoopRampRateGetter", openLoopRampRate);
-        System.out.println("openLoopRampRate: " + openLoopRampRate);
+        SmartDashboard.putNumber("OpenLoopRampRateGetter", this.openLoopRampRate);
 
         // builder.addDoubleProperty("Drive/OpenLoopRampRateSetter", null, this::setOpenLoopRampRate);
         // builder.addDoubleProperty("Drive/OpenLoopRampRateValue", this::getOpenLoopRampRate, null);
