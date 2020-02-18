@@ -24,10 +24,20 @@ subsystems:
       currentEpsilonCheck: .2
       rpmFloorCheck: 750
       rpmEpsilonCheck: 60
+      openLoopRampRate: 0
   canifier:
     implemented: true
     constants:
       canId: 12
+  hopper:
+    implemented: false
+  shooter:
+      implemented: false
+  collector:
+      implemented: false
+  climber:
+      implemented: false
+pcm: -1
 constants:
   wheelDiameter: 4.058
   trackWidth: 15.75
@@ -39,3 +49,5 @@ constants:
   kPCMId: 0
   pathKs: .0125
   verbose: 0
+  badLogEnabled: 1
+  compressorEnabled: 0
