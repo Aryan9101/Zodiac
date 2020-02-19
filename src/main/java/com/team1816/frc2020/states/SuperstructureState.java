@@ -1,47 +1,47 @@
 package com.team1816.frc2020.states;
 
+import com.team1816.frc2020.subsystems.Shooter;
 import com.team254.lib.util.Util;
 
 public class SuperstructureState {
     public double shooterVelocity;
-    public double turretPosition;
-    public boolean hopperDeployed;
+    public double turretAngle; //TODO: want degrees or ticks?
+    public double hopperIntake;
+
+    public boolean wantHoming;
 
 //    Turret:
 //    maxPos (and degrees):
 //    minPos (and degrees:
 
-    public SuperstructureState(int shooterVelocity, double turretPosition, boolean hopperDeployed) {
+    public SuperstructureState(int shooterVelocity, double turretAngle, double hopperIntake, boolean wantHoming) {
         this.shooterVelocity = shooterVelocity;
-        this.turretPosition = turretPosition;
-        this.hopperDeployed = hopperDeployed;
+        this.turretAngle = turretAngle;
+        this.hopperIntake = hopperIntake;
+        this.wantHoming = wantHoming;
     }
 
     public SuperstructureState() {
-        this(/*TODO: update*/0, /*TODO: update*/0, false);
+        this(0, 0, 0, false);
     }
 
-    public boolean inIllegalZone(boolean allowSmallErrors) {
-        return false;
+    public boolean inIllegalZone() {
+        return !Shooter.getInstance().isVelocityNearTarget() && (hopperIntake > 0);
     }
 
-    public boolean isInRange(SuperstructureState otherState, int armPositionThreshold) {
-        return Util.epsilonEquals(otherState.armPosition, armPosition, armPositionThreshold);
+    public boolean isInRange(SuperstructureState otherState, int shooterVelocityThreshold, int turretAngleThreshold) {
+        return Util.epsilonEquals(otherState.shooterVelocity, shooterVelocity, shooterVelocityThreshold)
+            && Util.epsilonEquals(otherState.turretAngle, turretAngle, turretAngleThreshold)
+            && Util.epsilonEquals(otherState.hopperIntake, hopperIntake);
     }
-
-    public boolean isInRange(SuperstructureState otherState) {
-        return otherState.isCollectorDown == isCollectorDown;
-    }
-
-
 
     @Override
     public String toString() {
         return
             "SuperstructureState {"
                 + "  shooterVelocity = " + shooterVelocity
-                + "  turretPosition = " + turretPosition
-                + "  hopperDeployed = " + hopperDeployed
+                + "  turretPosition = " + turretAngle
+                + "  hopperIntake = " + hopperIntake
                 + " }";
     }
 }

@@ -62,8 +62,8 @@ public class Superstructure extends Subsystem {
 
     private synchronized void updateObservedState(SuperstructureState state) {
         state.shooterVelocity = shooter.getActualVelocity();
-        state.turretPosition = turret.getTurretPositionDegrees(); //TODO: maybe ticks?
-        state.hopperDeployed = hopper.isDeployed(); //TODO: create method for checking hopper state
+        state.turretAngle = turret.getTurretPositionDegrees();
+        state.hopperIntake = hopper.getIntake(); //TODO: create method for checking hopper state
     }
 
     // Update subsystems from planner

@@ -2,6 +2,8 @@ package com.team1816.frc2020.states;
 
 
 import com.team1816.frc2019.subsystems.CargoShooter;
+import com.team1816.frc2020.subsystems.Shooter;
+import com.team1816.frc2020.subsystems.Turret;
 import com.team254.lib.util.Util;
 
 public class SuperstructureStateManager {
@@ -12,7 +14,8 @@ public class SuperstructureStateManager {
     
     public enum SubsystemState {
         WANTED_POSITION,
-        MOVING_TO_POSITION
+        MOVING_TO_POSITION,
+        MANUAL
     }
 
     private SubsystemState systemState = SubsystemState.WANTED_POSITION;
@@ -23,13 +26,15 @@ public class SuperstructureStateManager {
     private SuperstructureState commandedState = new SuperstructureState();
     private SuperstructureState desiredEndState = new SuperstructureState();
 
-    private int armPosition = CargoShooter.getInstance().getArmEncoderPosition();
+    private double shooterVelocity = Shooter.getInstance().getActualVelocity();
+    private double turretPosition = Turret.getInstance().getTurretPositionTicks(); //TODO: @SuperstructureState: want degrees?
 
-    private boolean isCollectorDown;
+    private boolean hopperDeployed;
 
     public boolean scoringPositionChanged() {
-        var scoringPositionChanged = !Util.epsilonEquals(desiredEndState.armPosition, armPosition) ||
-            desiredEndState.isCollectorDown != isCollectorDown;
+        var scoringPositionChanged = !Util.epsilonEquals(desiredEndState.shooterVelocity, shooterVelocity, 3000) ||
+            !Util.epsilonEquals(desiredEndState.turretAngle, turretPosition, /* degrees or ticks? */ 10)
+            || desiredEndState.hopperDeployed != hopperDeployed;
 
         return scoringPositionChanged;
     }
@@ -48,6 +53,9 @@ public class SuperstructureStateManager {
                     newState = handleDefaultTransitions(wantedAction, currentState);
                  //   System.out.println("State in GO_TO_POSITION:" + newState);
                     break;
+
+                case MANUAL:
+
                 default:
                     System.out.println("major bruh alert: " + systemState);
                     newState = systemState;
@@ -103,7 +111,7 @@ public class SuperstructureStateManager {
     }
 
     public boolean isCollectorDown() {
-        return isCollectorDown;
+        return isCollector;
     }
 
     private SubsystemState handleDefaultTransitions(WantedAction wantedAction, SuperstructureState currentState) {

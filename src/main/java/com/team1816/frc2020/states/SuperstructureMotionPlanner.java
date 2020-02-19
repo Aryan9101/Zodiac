@@ -1,5 +1,6 @@
 package com.team1816.frc2020.states;
 
+import com.team1816.frc2020.subsystems.Superstructure;
 import edu.wpi.first.wpilibj.Timer;
 
 import java.util.LinkedList;
@@ -11,21 +12,14 @@ public class SuperstructureMotionPlanner {
 
     static class SubCommand {
 
-        protected int commandedArmPosition;
-        protected boolean commandedCollectorDown;
-
         public SubCommand(SuperstructureState endState) {
             mEndState = endState;
         }
 
         public SuperstructureState mEndState;
 
-        public boolean isFinished(SuperstructureState currentState, int armPositionThreshold) {
-            return mEndState.isInRange(currentState, armPositionThreshold);
-        }
-
-        public boolean isFinished(SuperstructureState currentState) {
-            return mEndState.isInRange(currentState);
+        public boolean isFinished(SuperstructureState currentState, int shooterVelocityThreshold, int turretPositionThreshold) {
+            return mEndState.isInRange(currentState, shooterVelocityThreshold, turretPositionThreshold);
         }
 
         public boolean isFinished() {
@@ -34,6 +28,30 @@ public class SuperstructureMotionPlanner {
 
         public void update() { }
     }
+
+    static class WaitForShootSubCommand extends SubCommand {
+        public WaitForShootSubCommand(SuperstructureState endState) {
+            super(endState);
+        }
+
+        @Override
+        public boolean isFinished(SuperstructureState currentState, int shooterVelocityThreshold, int turretPositionThreshold) {
+            return super.isFinished(currentState, shooterVelocityThreshold, turretPositionThreshold);
+        }
+    }
+
+    static class WaitForHomeSubCommand extends SubCommand {
+        public WaitForHomeSubCommand(SuperstructureState endState) {
+            super(endState);
+        }
+
+        @Override
+        public boolean isFinished() {
+            return super.isFinished();
+        }
+    }
+
+    //TODO: Delete zeta specific subcommands
     static class WaitForCollectorSubCommand extends SubCommand {
         public WaitForCollectorSubCommand(SuperstructureState endState, boolean isCollectorDown) {
             super(endState);
@@ -112,17 +130,14 @@ public class SuperstructureMotionPlanner {
 //        desiredState.armPosition = Util.limit(desiredState.armPosition,
 //                CargoShooter.ARM_POSITION_UP, CargoShooter.ARM_POSITION_DOWN);
 
-        if (desiredState.inIllegalZone(true)) {
+        if (desiredState.inIllegalZone()) {
             System.err.println("Desired State in Illegal Zone!");
             return false;
         }
 
         mCommandQueue.clear();
 
-        if (
-            (true/* desiredState.armPosition > CargoShooter.ARM_POSITION_MID */)
-//            && (currentState.armPosition > CargoShooter.ARM_POSITION_MID)
-        ) {
+        if () {
             System.out.println("setDesiredState IF");
             // Target or current below mid position - arm will be moving through collector box
             // Ensure collector down
@@ -163,6 +178,7 @@ public class SuperstructureMotionPlanner {
             SubCommand subCommand = mCurrentCommand.get();
             subCommand.update();
             mIntermediateCommandState = subCommand.mEndState;
+            //TODO: how to check finished logic?
             boolean finished = subCommand.isFinished(currentState);
             System.out.println(mCurrentCommand + "finished? :" + finished);
             if (finished && !mCommandQueue.isEmpty()) {
