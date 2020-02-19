@@ -195,11 +195,9 @@ public class Robot extends TimedRobot {
                 createHoldAction(mControlBoard::getAutoHome, turret::setAutoHomeEnabled),
                 createHoldAction(mControlBoard::getShoot, (shooting) -> {
                     shooter.setVelocity(shooting ? 52_000 : 0);
-                    hopper.waitForShooter(shooting);
+                    hopper.lockToShooter(shooting);
                     hopper.setIntake(shooting ? 1 : 0);
-                    if (!shooting) {
-                        shooter.coast();
-                    } else {
+                    if (shooting) {
                         mDrive.setOpenLoop(DriveSignal.BRAKE);
                     }
                 })
@@ -405,23 +403,34 @@ public class Robot extends TimedRobot {
             throw t;
         }
 
-        boolean teleopDesired = false;
-
-        if (Constants.kIsBadlogEnabled && teleopDesired) {
+        if (Constants.kIsBadlogEnabled && Constants.kIsLoggingTeleOp) {
             logger.updateTopics();
             logger.log();
         }
     }
 
     public void manualControl() {
+
+        boolean arcadeDrive = false;
+
         double throttle = mControlBoard.getThrottle();
         double turn = mControlBoard.getTurn();
-//
-//        double left = Util.limit(throttle + (turn * 0.55), 1);
-//        double right = Util.limit(throttle - (turn * 0.55), 1);
 
         actionManager.update();
-        mDrive.setOpenLoop(cheesyDriveHelper.cheesyDrive(throttle, turn, throttle == 0));
+
+        DriveSignal driveSignal;
+
+        if (arcadeDrive) {
+            var filteredThrottle = Math.signum(throttle) * (throttle * throttle);
+            double left = Util.limit(filteredThrottle + (turn * 0.55), 1);
+            double right = Util.limit(filteredThrottle - (turn * 0.55), 1);
+            driveSignal = new DriveSignal(left, right);
+        } else {
+            driveSignal = cheesyDriveHelper.cheesyDrive(throttle, turn, throttle == 0);
+        }
+
+
+        mDrive.setOpenLoop(driveSignal);
     }
 
     @Override
