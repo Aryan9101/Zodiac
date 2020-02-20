@@ -30,6 +30,7 @@ import com.team254.lib.geometry.Twist2d;
 import com.team254.lib.trajectory.TrajectoryIterator;
 import com.team254.lib.trajectory.timing.TimedState;
 import com.team254.lib.util.DriveSignal;
+import edu.wpi.first.networktables.EntryListenerFlags;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
@@ -243,6 +244,7 @@ public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider
                                 updatePathFollower(timestamp);
                             }
                         case TRAJECTORY_FOLLOWING:
+                            System.out.println("Now setting trajectory");
                             if (Constants.kIsBadlogEnabled) {
                                 mLogger.updateTopics();
                                 mLogger.log();
@@ -374,6 +376,10 @@ public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider
         mLeftMaster.setSelectedSensorPosition(0, 0, 0);
         mRightMaster.setSelectedSensorPosition(0, 0, 0);
         mPeriodicIO = new PeriodicIO();
+    }
+
+    public DriveControlState getDriveControlState() {
+        return mDriveControlState;
     }
 
     public double getLeftEncoderRotations() {
@@ -608,8 +614,12 @@ public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider
         builder.addDoubleProperty("Right Drive Ticks", this::getRightDriveTicks, null);
         builder.addDoubleProperty("Left Drive Distance", this::getLeftEncoderDistance, null);
         builder.addDoubleProperty("Left Drive Ticks", this::getLeftDriveTicks, null);
+        builder.addStringProperty("Drive/ControlState", () -> this.getDriveControlState().toString(), null);
 
-        SmartDashboard.putNumber("OpenLoopRampRateGetter", this.openLoopRampRate);
+        SmartDashboard.putNumber("Drive/OpenLoopRampRate", this.openLoopRampRate);
+        SmartDashboard.getEntry("Drive/OpenLoopRampRate").addListener(notification -> {
+            setOpenLoopRampRate(notification.value.getDouble());
+        }, EntryListenerFlags.kNew | EntryListenerFlags.kUpdate);
 
         // builder.addDoubleProperty("Drive/OpenLoopRampRateSetter", null, this::setOpenLoopRampRate);
         // builder.addDoubleProperty("Drive/OpenLoopRampRateValue", this::getOpenLoopRampRate, null);
@@ -632,11 +642,11 @@ public class Drive extends Subsystem implements TrackableDrivetrain, PidProvider
         //     SmartDashboard.putNumber("Drive CTE", 0.0);
         // }
 
-        if (getHeading() != null) {
-            Shuffleboard.getTab("Drive")
-                .addNumber("Gyro Heading", this::getHeadingDegrees)
-                .withWidget(BuiltInWidgets.kGyro);
-        }
+        // if (getHeading() != null) {
+        //     Shuffleboard.getTab("Drive")
+        //         .addNumber("Gyro Heading", this::getHeadingDegrees)
+        //         .withWidget(BuiltInWidgets.kGyro);
+        // }
     }
 
     public synchronized double getTimestamp() {
