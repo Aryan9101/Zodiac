@@ -1,7 +1,6 @@
 package com.team1816.frc2020.states;
 
-
-import com.team1816.frc2019.subsystems.CargoShooter;
+import com.team1816.frc2020.subsystems.Collector;
 import com.team1816.frc2020.subsystems.Shooter;
 import com.team1816.frc2020.subsystems.Turret;
 import com.team254.lib.util.Util;
@@ -27,14 +26,16 @@ public class SuperstructureStateManager {
     private SuperstructureState desiredEndState = new SuperstructureState();
 
     private double shooterVelocity = Shooter.getInstance().getActualVelocity();
-    private double turretPosition = Turret.getInstance().getTurretPositionTicks(); //TODO: @SuperstructureState: want degrees?
+    private double turretAngle = Turret.getInstance().getTurretPositionTicks(); //TODO: @SuperstructureState: want degrees?
+    private boolean collectorDeployed = Collector.getInstance().isArmDown();
+
 
     private boolean hopperDeployed;
 
     public boolean scoringPositionChanged() {
         var scoringPositionChanged = !Util.epsilonEquals(desiredEndState.shooterVelocity, shooterVelocity, 3000) ||
-            !Util.epsilonEquals(desiredEndState.turretAngle, turretPosition, /* degrees or ticks? */ 10)
-            || desiredEndState.hopperDeployed != hopperDeployed;
+            !Util.epsilonEquals(desiredEndState.turretAngle, turretAngle, /* degrees or ticks? */ 10)
+            || desiredEndState.collectorDeployed != collectorDeployed;
 
         return scoringPositionChanged;
     }
@@ -78,8 +79,8 @@ public class SuperstructureStateManager {
 
     private void updateMotionPlannerDesired(SuperstructureState currentState) {
 
-        desiredEndState.isCollectorDown = isCollectorDown;
-        desiredEndState.armPosition = armPosition;
+        desiredEndState.shooterVelocity = shooterVelocity;
+        desiredEndState.turretAngle = turretAngle;
 
         var desiredStateReturnValue = planner.setDesiredState(desiredEndState, currentState);
         System.out.println("SuperstructureStateManager::updateMotionPlannerDesired() -> desiredStateReturnValue: "

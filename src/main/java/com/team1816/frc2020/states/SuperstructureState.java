@@ -6,33 +6,40 @@ import com.team254.lib.util.Util;
 public class SuperstructureState {
     public double shooterVelocity;
     public double turretAngle; //TODO: want degrees or ticks?
-    public double hopperIntake;
-
+    public boolean elevatorIntake;
+    public boolean spindexerIntake;
+    public boolean collectorDeployed;
     public boolean wantHoming;
 
 //    Turret:
 //    maxPos (and degrees):
 //    minPos (and degrees:
 
-    public SuperstructureState(int shooterVelocity, double turretAngle, double hopperIntake, boolean wantHoming) {
+    public SuperstructureState(int shooterVelocity, double turretAngle, boolean elevatorIntake,
+                               boolean spindexerIntake,
+                               boolean collectorDeployed,
+                               boolean wantHoming) {
         this.shooterVelocity = shooterVelocity;
         this.turretAngle = turretAngle;
-        this.hopperIntake = hopperIntake;
+        this.elevatorIntake = elevatorIntake;
+        this.spindexerIntake = spindexerIntake;
+        this.collectorDeployed = collectorDeployed;
         this.wantHoming = wantHoming;
     }
 
     public SuperstructureState() {
-        this(0, 0, 0, false);
+        this(0, 0, false, false, false, false);
     }
 
     public boolean inIllegalZone() {
-        return !Shooter.getInstance().isVelocityNearTarget() && (hopperIntake > 0);
+        return !Shooter.getInstance().isVelocityNearTarget() && (elevatorIntake) && (spindexerIntake);
     }
 
     public boolean isInRange(SuperstructureState otherState, int shooterVelocityThreshold, int turretAngleThreshold) {
         return Util.epsilonEquals(otherState.shooterVelocity, shooterVelocity, shooterVelocityThreshold)
             && Util.epsilonEquals(otherState.turretAngle, turretAngle, turretAngleThreshold)
-            && Util.epsilonEquals(otherState.hopperIntake, hopperIntake);
+            && (otherState.elevatorIntake = elevatorIntake)
+            && (otherState.spindexerIntake = spindexerIntake);
     }
 
     @Override
@@ -41,7 +48,8 @@ public class SuperstructureState {
             "SuperstructureState {"
                 + "  shooterVelocity = " + shooterVelocity
                 + "  turretPosition = " + turretAngle
-                + "  hopperIntake = " + hopperIntake
+                + "  elevatorIntake = " + elevatorIntake
+                + "  spindexerIntake = " + spindexerIntake
                 + " }";
     }
 }
