@@ -72,6 +72,10 @@ public class Collector extends Subsystem {
         }
     }
 
+    public boolean isDeployed() {
+        return armPiston.get() && intake.getMotorOutputPercent() > 0;
+    }
+
     @Override
     public void writePeriodicOutputs() {
         if (isRaising) {

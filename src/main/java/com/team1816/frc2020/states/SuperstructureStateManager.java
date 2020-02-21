@@ -1,6 +1,7 @@
 package com.team1816.frc2020.states;
 
 import com.team1816.frc2020.subsystems.Collector;
+import com.team1816.frc2020.subsystems.Hopper;
 import com.team1816.frc2020.subsystems.Shooter;
 import com.team1816.frc2020.subsystems.Turret;
 import com.team254.lib.util.Util;
@@ -21,26 +22,23 @@ public class SuperstructureStateManager {
 
     private SuperstructureMotionPlanner planner = new SuperstructureMotionPlanner();
 
-    private SuperstructureCommand command = new SuperstructureCommand();
     private SuperstructureState commandedState = new SuperstructureState();
     private SuperstructureState desiredEndState = new SuperstructureState();
 
     private double shooterVelocity = Shooter.getInstance().getActualVelocity();
-    private double turretAngle = Turret.getInstance().getTurretPositionTicks(); //TODO: @SuperstructureState: want degrees?
+    private double turretAngle = Turret.getInstance().getTurretPositionDegrees();
+    private boolean elevatorIntake = Hopper.getInstance().getElevatorIntake();
+    private boolean spindexerIntake = Hopper.getInstance().getSpindexerIntake();
     private boolean collectorDeployed = Collector.getInstance().isArmDown();
-
-
-    private boolean hopperDeployed;
+    private boolean wantHoming = false;
 
     public boolean scoringPositionChanged() {
-        var scoringPositionChanged = !Util.epsilonEquals(desiredEndState.shooterVelocity, shooterVelocity, 3000) ||
-            !Util.epsilonEquals(desiredEndState.turretAngle, turretAngle, /* degrees or ticks? */ 10)
-            || desiredEndState.collectorDeployed != collectorDeployed;
-
-        return scoringPositionChanged;
+        return !Util.epsilonEquals(desiredEndState.shooterVelocity, shooterVelocity, SuperstructureMotionPlanner.kShooterVelocityThreshold)
+                || !Util.epsilonEquals(desiredEndState.turretAngle, turretAngle, SuperstructureMotionPlanner.kTurretAngleThreshold)
+                || desiredEndState.collectorDeployed != collectorDeployed;
     }
 
-    public synchronized SuperstructureCommand update(double timestamp, WantedAction wantedAction,
+    public synchronized SuperstructureState update(double timestamp, WantedAction wantedAction,
                                                      SuperstructureState currentState) {
         synchronized (SuperstructureStateManager.this) {
             SubsystemState newState;
@@ -69,18 +67,18 @@ public class SuperstructureStateManager {
             }
 
             commandedState = planner.update(currentState);
-            command.armPosition = Util.limit(commandedState.armPosition,
-                CargoShooter.ARM_POSITION_UP, CargoShooter.ARM_POSITION_DOWN);
-            command.collectorDown = commandedState.isCollectorDown;
 
-            return command;
+            return commandedState;
         }
     }
 
     private void updateMotionPlannerDesired(SuperstructureState currentState) {
-
         desiredEndState.shooterVelocity = shooterVelocity;
         desiredEndState.turretAngle = turretAngle;
+        desiredEndState.elevatorIntake = elevatorIntake;
+        desiredEndState.spindexerIntake = spindexerIntake;
+        desiredEndState.collectorDeployed = collectorDeployed;
+        desiredEndState.wantHoming = wantHoming;
 
         var desiredStateReturnValue = planner.setDesiredState(desiredEndState, currentState);
         System.out.println("SuperstructureStateManager::updateMotionPlannerDesired() -> desiredStateReturnValue: "
@@ -90,29 +88,13 @@ public class SuperstructureStateManager {
             System.out.println("Unable to set cargo shooter/collector planner!");
         }
 
-        System.out.println("Setting motion planner to armPosition: " + desiredEndState.armPosition
-            + " || collectorDown: " + desiredEndState.isCollectorDown);
+        System.out.println("Setting motion planner to " + desiredEndState.toString());
 
-        armPosition = desiredEndState.armPosition;
-        isCollectorDown = desiredEndState.isCollectorDown;
-
-        System.out.println("Collector state: " + isCollectorDown);
-    }
-
-    public synchronized void setArmPosition(int armPosition) {
-        this.armPosition = armPosition;
-    }
-
-    public int getArmPosition() {
-        return armPosition;
-    }
-
-    public synchronized void setCollectorDown(boolean collectorDown) {
-        isCollectorDown = collectorDown;
-    }
-
-    public boolean isCollectorDown() {
-        return isCollector;
+        shooterVelocity = desiredEndState.shooterVelocity;
+        turretAngle = desiredEndState.turretAngle;
+        elevatorIntake = desiredEndState.elevatorIntake;
+        spindexerIntake = desiredEndState.spindexerIntake;
+        collectorDeployed = desiredEndState.collectorDeployed;
     }
 
     private SubsystemState handleDefaultTransitions(WantedAction wantedAction, SuperstructureState currentState) {

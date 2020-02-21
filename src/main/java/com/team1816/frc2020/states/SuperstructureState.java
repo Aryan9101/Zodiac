@@ -5,7 +5,7 @@ import com.team254.lib.util.Util;
 
 public class SuperstructureState {
     public double shooterVelocity;
-    public double turretAngle; //TODO: want degrees or ticks?
+    public double turretAngle;
     public boolean elevatorIntake;
     public boolean spindexerIntake;
     public boolean collectorDeployed;
@@ -35,7 +35,7 @@ public class SuperstructureState {
         return !Shooter.getInstance().isVelocityNearTarget() && (elevatorIntake) && (spindexerIntake);
     }
 
-    public boolean isInRange(SuperstructureState otherState, int shooterVelocityThreshold, int turretAngleThreshold) {
+    public boolean isInRange(SuperstructureState otherState, int shooterVelocityThreshold, double turretAngleThreshold) {
         return Util.epsilonEquals(otherState.shooterVelocity, shooterVelocity, shooterVelocityThreshold)
             && Util.epsilonEquals(otherState.turretAngle, turretAngle, turretAngleThreshold)
             && (otherState.elevatorIntake = elevatorIntake)
@@ -50,6 +50,7 @@ public class SuperstructureState {
                 + "  turretPosition = " + turretAngle
                 + "  elevatorIntake = " + elevatorIntake
                 + "  spindexerIntake = " + spindexerIntake
+                + "  collectorDeployed = " + collectorDeployed
                 + " }";
     }
 }

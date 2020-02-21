@@ -151,6 +151,8 @@ public class Robot extends TimedRobot {
                 // climber
             );
 
+            Camera.getInstance();
+
             mDrive.zeroSensors();
 
             mSubsystemManager.registerEnabledLoops(mEnabledLooper);

@@ -1,14 +1,17 @@
 package com.team1816.frc2020.states;
 
-import com.team1816.frc2020.subsystems.Superstructure;
+import com.team1816.frc2020.subsystems.Shooter;
 import edu.wpi.first.wpilibj.Timer;
 
 import java.util.LinkedList;
 import java.util.Optional;
 
 public class SuperstructureMotionPlanner {
-
     protected static boolean isFinished;
+
+    // Constants
+    public static final int kShooterVelocityThreshold = Shooter.VELOCITY_THRESHOLD;
+    public static final double kTurretAngleThreshold = 0.5;
 
     static class SubCommand {
 
@@ -18,10 +21,11 @@ public class SuperstructureMotionPlanner {
 
         public SuperstructureState mEndState;
 
-        public boolean isFinished(SuperstructureState currentState, int shooterVelocityThreshold, int turretPositionThreshold) {
-            return mEndState.isInRange(currentState, shooterVelocityThreshold, turretPositionThreshold);
+        public boolean isFinished(SuperstructureState currentState) {
+            return mEndState.isInRange(currentState, kShooterVelocityThreshold, kTurretAngleThreshold);
         }
 
+        @Deprecated
         public boolean isFinished() {
             return isFinished;
         }

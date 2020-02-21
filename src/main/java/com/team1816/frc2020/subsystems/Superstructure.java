@@ -1,7 +1,6 @@
 package com.team1816.frc2020.subsystems;
 
 import com.team1816.frc2020.Robot;
-import com.team1816.frc2020.states.SuperstructureCommand;
 import com.team1816.frc2020.states.SuperstructureState;
 import com.team1816.frc2020.states.SuperstructureStateManager;
 import com.team1816.frc2020.states.SuperstructureStateManager.WantedAction;
@@ -34,6 +33,7 @@ public class Superstructure extends Subsystem {
     private Shooter shooter = Shooter.getInstance();
     private Hopper hopper = Hopper.getInstance();
     private Turret turret = Turret.getInstance();
+    private Collector collector = Collector.getInstance();
 
     private SuperstructureStateManager stateMachine = new SuperstructureStateManager();
     private WantedAction wantedAction = WantedAction.IDLE;
@@ -65,10 +65,11 @@ public class Superstructure extends Subsystem {
         state.turretAngle = turret.getTurretPositionDegrees();
         state.elevatorIntake = hopper.getElevatorIntake(); //TODO: create method for checking hopper state
         state.spindexerIntake = hopper.getSpindexerIntake();
+        state.collectorDeployed = collector.isDeployed();
     }
 
     // Update subsystems from planner
-    synchronized void setFromCommandState(SuperstructureCommand commandState) {
+    synchronized void setFromCommandState(SuperstructureState commandState) {
 
         shooter.setVelocity(commandState.shooterVelocity);
         turret.setTurretAngle(commandState.turretAngle);
@@ -78,7 +79,7 @@ public class Superstructure extends Subsystem {
     @Override
     public void registerEnabledLoops(ILooper mEnabledLooper) {
         mEnabledLooper.register(new Loop() {
-            private SuperstructureCommand command;
+            private SuperstructureState command;
 
             @Override
             public void onStart(double timestamp) {
@@ -123,19 +124,6 @@ public class Superstructure extends Subsystem {
         setWantedAction(WantedAction.GO_TO_POSITION);
         stateMachine.setCollectorDown(true);
         stateMachine.setArmPosition(CargoShooter.ARM_POSITION_DOWN);
-    }
-
-    public synchronized void setRocketMode() {
-        setWantedAction(WantedAction.GO_TO_POSITION);
-        stateMachine.setArmPosition(CargoShooter.ARM_POSITION_MID);
-        stateMachine.setCollectorDown(false);
-    }
-
-    public synchronized void setShootUpwardsMode() {
-        System.out.println("Setting state to normal state!");
-        setWantedAction(WantedAction.GO_TO_POSITION);
-        stateMachine.setArmPosition(CargoShooter.ARM_POSITION_UP);
-        stateMachine.setCollectorDown(false);
     }
 
 
