@@ -28,8 +28,6 @@ public class Superstructure extends Subsystem {
     private static Superstructure mInstance;
     private SuperstructureState state = new SuperstructureState();
 
-    //TODO:
-
     private Shooter shooter = Shooter.getInstance();
     private Hopper hopper = Hopper.getInstance();
     private Turret turret = Turret.getInstance();
@@ -70,10 +68,10 @@ public class Superstructure extends Subsystem {
 
     // Update subsystems from planner
     synchronized void setFromCommandState(SuperstructureState commandState) {
-
         shooter.setVelocity(commandState.shooterVelocity);
         turret.setTurretAngle(commandState.turretAngle);
-        hopper.setIntake(commandState.hopperIntake); //TODO: how to manipulate hopper?
+        hopper.setElevator(commandState.elevatorIntake);
+        hopper.setSpindexer(commandState.spindexerIntake);
     }
 
     @Override
@@ -118,14 +116,32 @@ public class Superstructure extends Subsystem {
         this.wantedAction = wantedAction;
     }
 
-   // TODO: Remove
     public synchronized void setCollectingMode() {
         System.err.println("Setting state to collecting mode!");
         setWantedAction(WantedAction.GO_TO_POSITION);
-        stateMachine.setCollectorDown(true);
-        stateMachine.setArmPosition(CargoShooter.ARM_POSITION_DOWN);
+        stateMachine.setCollectorDeployed(true);
+        stateMachine.setSpindexerIntake(true);
+        stateMachine.setElevatorIntake(false);
     }
 
+    public synchronized void setDefaultMode() {
+        System.err.print("Resetting state");
+        setWantedAction(WantedAction.GO_TO_POSITION);
+        stateMachine.setCollectorDeployed(false);
+        stateMachine.setSpindexerIntake(false);
+        stateMachine.setElevatorIntake(false);
+        stateMachine.setWantHoming(false);
+        stateMachine.setShooterVelocity(0);
+    }
+
+    public synchronized void setShootingMode() {
+        System.err.println("Setting state to shooting mode");
+        setWantedAction(WantedAction.GO_TO_POSITION);
+        stateMachine.setWantHoming(true);
+        stateMachine.setShooterVelocity(Shooter.SHOOT_VELOCITY);
+        stateMachine.setSpindexerIntake(true);
+        stateMachine.setElevatorIntake(true);
+    }
 
     @Override
     public void stop() {

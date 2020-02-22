@@ -51,6 +51,7 @@ public class SuperstructureState {
                 + "  elevatorIntake = " + elevatorIntake
                 + "  spindexerIntake = " + spindexerIntake
                 + "  collectorDeployed = " + collectorDeployed
+                + "  wantHoming = " + wantHoming
                 + " }";
     }
 }

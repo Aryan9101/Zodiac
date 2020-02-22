@@ -63,6 +63,14 @@ public class Hopper extends Subsystem {
         outputsChanged = true;
     }
 
+    public void setSpindexer(boolean on) {
+        setSpindexer(on ? 1 : 0);
+    }
+
+    public void setElevator(boolean on) {
+        setElevator(on ? 1 : 0);
+    }
+
     public void setIntake(double intakeOutput) {
         setElevator(intakeOutput);
         setSpindexer(intakeOutput);

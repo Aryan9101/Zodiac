@@ -43,6 +43,7 @@ public class SuperstructureStateManager {
         synchronized (SuperstructureStateManager.this) {
             SubsystemState newState;
 
+            //TODO: Test simplification
             switch (systemState) {
                 case WANTED_POSITION:
                     newState = handleDefaultTransitions(wantedAction, currentState);
@@ -116,6 +117,30 @@ public class SuperstructureStateManager {
 
     public SubsystemState getSubsystemState() {
         return systemState;
+    }
+
+    public void setShooterVelocity(double shooterVelocity) {
+        this.shooterVelocity = shooterVelocity;
+    }
+
+    public void setTurretAngle(double turretAngle) {
+        this.turretAngle = turretAngle;
+    }
+
+    public void setElevatorIntake(boolean elevatorIntake) {
+        this.elevatorIntake = elevatorIntake;
+    }
+
+    public void setSpindexerIntake(boolean spindexerIntake) {
+        this.spindexerIntake = spindexerIntake;
+    }
+
+    public void setCollectorDeployed(boolean collectorDeployed) {
+        this.collectorDeployed = collectorDeployed;
+    }
+
+    public void setWantHoming(boolean wantHoming) {
+        this.wantHoming = wantHoming;
     }
 }
 

@@ -43,6 +43,7 @@ public class Shooter extends Subsystem implements PidProvider {
     private final double kD;
     private final double kF;
     public static final int MAX_VELOCITY = 65000;
+    public static final int SHOOT_VELOCITY = 52_000;
     public static final int VELOCITY_THRESHOLD = (int) factory.getConstant(NAME, "velocityThreshold", 3000);
 
     private Shooter() {
@@ -110,7 +111,7 @@ public class Shooter extends Subsystem implements PidProvider {
     }
 
     public void startShooter() {
-        setVelocity(MAX_VELOCITY);
+        setVelocity(SHOOT_VELOCITY);
     }
 
     public void stopShooter() {
