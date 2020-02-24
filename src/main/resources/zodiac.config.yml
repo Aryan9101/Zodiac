@@ -83,6 +83,9 @@ subsystems:
     ledmanager:
         implemented: false
         canifier: 0
+        constants:
+            ledPort: 0
+            stripLength: 0
 pcm: 8
 constants: #TODO: update constants for new robot
     wheelDiameter: 6.29 #inches

@@ -5,6 +5,8 @@ import com.team1816.frc2020.Robot;
 import com.team1816.lib.loops.ILooper;
 import com.team1816.lib.loops.Loop;
 import com.team1816.lib.subsystems.Subsystem;
+import edu.wpi.first.wpilibj.AddressableLED;
+import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
 
@@ -15,11 +17,13 @@ public class LedManager extends Subsystem {
 
     // Components
     private final CANifier canifier;
+    private final AddressableLED ledStrip;
 
     // State
     private boolean blinkMode;
     private boolean blinkLedOn = false;
     private boolean outputsChanged = true;
+    private AddressableLEDBuffer ledBuffer;
 
     private int ledR;
     private int ledG;
@@ -28,12 +32,24 @@ public class LedManager extends Subsystem {
     private int period; // ms
     private long lastWriteTime = System.currentTimeMillis();
 
+    // Constants
+    private static final int LED_PWM_PORT = ((int) factory.getConstant(NAME, "ledPort"));
+    private static final int LED_STRIP_LENGTH = ((int) factory.getConstant(NAME, "stripLength"));
+
     private LedManager() {
         super(NAME);
         this.canifier = factory.getCanifier(NAME);
         this.ledR = 0;
         this.ledG = 0;
         this.ledB = 0;
+        this.ledStrip = new AddressableLED(LED_PWM_PORT);
+        this.ledBuffer = new AddressableLEDBuffer(LED_STRIP_LENGTH);
+
+        // Expensive operation, set only once.
+        ledStrip.setLength(ledBuffer.getLength());
+
+        ledStrip.setData(ledBuffer);
+        ledStrip.start();
     }
 
     public static LedManager getInstance() {
@@ -41,15 +57,6 @@ public class LedManager extends Subsystem {
             INSTANCE = new LedManager();
         }
         return INSTANCE;
-    }
-
-    @Deprecated
-    public void forceSetLedColor(int r, int g, int b) {
-        if (this.ledR != r || this.ledG != g || this.ledB != b) {
-            canifier.setLEDOutput((ledG / 255.0), CANifier.LEDChannel.LEDChannelA);
-            canifier.setLEDOutput((ledR / 255.0), CANifier.LEDChannel.LEDChannelB);
-            canifier.setLEDOutput((ledB / 255.0), CANifier.LEDChannel.LEDChannelC);
-        }
     }
 
     public void setLedColor(int r, int g, int b) {
@@ -106,6 +113,17 @@ public class LedManager extends Subsystem {
         canifier.setLEDOutput(r / 255.0, CANifier.LEDChannel.LEDChannelB);
         canifier.setLEDOutput(g / 255.0, CANifier.LEDChannel.LEDChannelA);
         canifier.setLEDOutput(b / 255.0, CANifier.LEDChannel.LEDChannelC);
+    }
+
+    private void writeEntireBuffer(int r, int g, int b) {
+        writeBufferRegion(0, ledBuffer.getLength(), r, g, b);
+    }
+
+    private void writeBufferRegion(int start, int end, int r, int g, int b) {
+        for (int i = start; i < end; i++) {
+            ledBuffer.setRGB(i, r, g, b);
+        }
+        ledStrip.setData(ledBuffer);
     }
 
     @Override
