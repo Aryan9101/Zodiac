@@ -27,8 +27,8 @@ public class SuperstructureStateManager {
 
     private double shooterVelocity = Shooter.getInstance().getActualVelocity();
     private double turretAngle = Turret.getInstance().getTurretPositionDegrees();
-    private boolean elevatorIntake = Hopper.getInstance().getElevatorIntake();
-    private boolean spindexerIntake = Hopper.getInstance().getSpindexerIntake();
+    private double elevatorVelocity = Hopper.getInstance().getElevatorPower();
+    private double spindexerVelocity = Hopper.getInstance().getSpindexerPower();
     private boolean collectorDeployed = Collector.getInstance().isArmDown();
     private boolean wantHoming = false;
 
@@ -76,8 +76,8 @@ public class SuperstructureStateManager {
     private void updateMotionPlannerDesired(SuperstructureState currentState) {
         desiredEndState.shooterVelocity = shooterVelocity;
         desiredEndState.turretAngle = turretAngle;
-        desiredEndState.elevatorIntake = elevatorIntake;
-        desiredEndState.spindexerIntake = spindexerIntake;
+        desiredEndState.elevatorVelocity = elevatorVelocity;
+        desiredEndState.spindexerVelocity = spindexerVelocity;
         desiredEndState.collectorDeployed = collectorDeployed;
         desiredEndState.wantHoming = wantHoming;
 
@@ -93,8 +93,8 @@ public class SuperstructureStateManager {
 
         shooterVelocity = desiredEndState.shooterVelocity;
         turretAngle = desiredEndState.turretAngle;
-        elevatorIntake = desiredEndState.elevatorIntake;
-        spindexerIntake = desiredEndState.spindexerIntake;
+        elevatorVelocity = desiredEndState.elevatorVelocity;
+        spindexerVelocity = desiredEndState.spindexerVelocity;
         collectorDeployed = desiredEndState.collectorDeployed;
     }
 
@@ -127,12 +127,12 @@ public class SuperstructureStateManager {
         this.turretAngle = turretAngle;
     }
 
-    public void setElevatorIntake(boolean elevatorIntake) {
-        this.elevatorIntake = elevatorIntake;
+    public void setElevatorIntake(double elevatorPower) {
+        this.elevatorVelocity = elevatorPower;
     }
 
-    public void setSpindexerIntake(boolean spindexerIntake) {
-        this.spindexerIntake = spindexerIntake;
+    public void setSpindexerIntake(double spindexerPower) {
+        this.spindexerVelocity = spindexerPower;
     }
 
     public void setCollectorDeployed(boolean collectorDeployed) {

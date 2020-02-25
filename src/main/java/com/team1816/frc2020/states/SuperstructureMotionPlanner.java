@@ -1,19 +1,25 @@
 package com.team1816.frc2020.states;
 
 import com.team1816.frc2020.subsystems.Shooter;
+import com.team1816.frc2020.subsystems.Turret;
 import edu.wpi.first.wpilibj.Timer;
 
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.Optional;
 
 public class SuperstructureMotionPlanner {
-    protected static boolean isFinished;
 
     // Constants
     public static final int kShooterVelocityThreshold = Shooter.VELOCITY_THRESHOLD;
     public static final double kTurretAngleThreshold = 0.5;
 
     static class SubCommand {
+
+        protected boolean commandedCollectorDown;
+        protected double commandedShooterSpeed;
+        protected double commandedSpindexerSpeed;
+        protected double commandedElevatorSpeed;
 
         public SubCommand(SuperstructureState endState) {
             mEndState = endState;
@@ -25,23 +31,7 @@ public class SuperstructureMotionPlanner {
             return mEndState.isInRange(currentState, kShooterVelocityThreshold, kTurretAngleThreshold);
         }
 
-        @Deprecated
-        public boolean isFinished() {
-            return isFinished;
-        }
-
         public void update() { }
-    }
-
-    static class WaitForShootSubCommand extends SubCommand {
-        public WaitForShootSubCommand(SuperstructureState endState) {
-            super(endState);
-        }
-
-        @Override
-        public boolean isFinished(SuperstructureState currentState, int shooterVelocityThreshold, int turretPositionThreshold) {
-            return super.isFinished(currentState, shooterVelocityThreshold, turretPositionThreshold);
-        }
     }
 
     static class WaitForHomeSubCommand extends SubCommand {
@@ -50,8 +40,8 @@ public class SuperstructureMotionPlanner {
         }
 
         @Override
-        public boolean isFinished() {
-            return super.isFinished();
+        public boolean isFinished(SuperstructureState currentState) {
+            return super.isFinished(currentState) && Turret.getInstance().getPositionError() < 10;
         }
     }
 
@@ -69,25 +59,50 @@ public class SuperstructureMotionPlanner {
 
         @Override
         public void update() {
-            mEndState.isCollectorDown = commandedCollectorDown;
+            mEndState.collectorDeployed = commandedCollectorDown;
         }
     }
 
     static class WaitForShooterSubCommand extends SubCommand {
 
-        public WaitForShooterSubCommand(SuperstructureState endState, int armPosition) {
+        public WaitForShooterSubCommand(SuperstructureState endState, double shooterSpeed) {
             super(endState);
-            commandedArmPosition = armPosition;
+            commandedShooterSpeed = shooterSpeed;
         }
 
         @Override
         public boolean isFinished(SuperstructureState currentState) {
-            return super.isFinished(currentState, 30);
+            return super.isFinished(currentState);
         }
 
         @Override
         public void update() {
-            mEndState.armPosition = commandedArmPosition;
+            mEndState.shooterVelocity = commandedShooterSpeed;
+        }
+    }
+
+    static class WaitForElevatorSubCommand extends SubCommand {
+
+        public WaitForElevatorSubCommand(SuperstructureState endState, double elevatorSpeed) {
+            super(endState);
+            commandedElevatorSpeed = elevatorSpeed;
+        }
+
+        @Override
+        public void update() {
+            mEndState.elevatorVelocity = commandedElevatorSpeed;
+        }
+    }
+
+    static class InstantSpindexer extends SubCommand {
+
+        public InstantSpindexer(SuperstructureState endState, double spindexerVelocity) {
+            super(endState);
+            commandedSpindexerSpeed = spindexerVelocity;
+        }
+        @Override
+        public void update() {
+            mEndState.spindexerVelocity = commandedSpindexerSpeed;
         }
     }
 
@@ -141,21 +156,24 @@ public class SuperstructureMotionPlanner {
 
         mCommandQueue.clear();
 
-        if () {
-            System.out.println("setDesiredState IF");
-            // Target or current below mid position - arm will be moving through collector box
-            // Ensure collector down
-            mCommandQueue.add(new WaitForCollectorSubCommand(mIntermediateCommandState, desiredState.isCollectorDown));
-            mCommandQueue.add(new WaitForTime(mIntermediateCommandState,0.15));
-            mCommandQueue.add(new WaitForShooterSubCommand(mIntermediateCommandState, desiredState.armPosition));
-            System.out.println("Queuing WaitForCollectingSubCommand - arm will be moving through collector box");
+        if (desiredState.shooterVelocity > 0 && desiredState.wantHoming) {
+            System.out.println("setDesiredState IF want to shoot");
+            mCommandQueue.add(new InstantSpindexer(mIntermediateCommandState, desiredState.spindexerVelocity));
+            mCommandQueue.add(new WaitForHomeSubCommand(mIntermediateCommandState));
+            mCommandQueue.add(new WaitForShooterSubCommand(mIntermediateCommandState, desiredState.shooterVelocity));
+            mCommandQueue.add(new WaitForElevatorSubCommand(mIntermediateCommandState, desiredState.elevatorVelocity));
+            System.out.println("Queuing WaitForCollectingSubCommand - shooter will shoot");
+        } else if (desiredState.collectorDeployed && desiredState.spindexerVelocity > 0) {
+            System.out.println("setDesiredState IF want to collect");
+            mCommandQueue.add(new InstantSpindexer(mIntermediateCommandState, -1));
+            mCommandQueue.add(new WaitForCollectorSubCommand(mIntermediateCommandState, desiredState.collectorDeployed));
+            mCommandQueue.add(new InstantSpindexer(mIntermediateCommandState, 1));
         } else {
-            System.out.println("setDesiredState ELSE");
-            // Lift collector if target position above or equal to mid position
-            mCommandQueue.add(new WaitForShooterSubCommand(mIntermediateCommandState, desiredState.armPosition));
-            mCommandQueue.add(new WaitForTime(mIntermediateCommandState,0.15));
-            System.out.println("Queuing WaitForENDCollectingSubCommand - arm will be above collector box");
-            mCommandQueue.add(new WaitForCollectorSubCommand(mIntermediateCommandState, desiredState.isCollectorDown));
+            System.out.println("resetting robot");
+            mCommandQueue.add(new WaitForCollectorSubCommand(mIntermediateCommandState, false));
+            mCommandQueue.add(new WaitForShooterSubCommand(mIntermediateCommandState, 0));
+            mCommandQueue.add(new InstantSpindexer(mIntermediateCommandState, 0));
+            mCommandQueue.add(new WaitForElevatorSubCommand(mIntermediateCommandState, 0));
         }
 
          mCurrentCommand = Optional.empty();

@@ -40,12 +40,12 @@ public class Hopper extends Subsystem {
         this.elevator = factory.getMotor(NAME, "elevator");
     }
 
-    public boolean getSpindexerIntake() {
-        return spindexerPower > 0;
+    public double getElevatorPower() {
+        return elevatorPower;
     }
 
-    public boolean getElevatorIntake() {
-        return elevatorPower > 0;
+    public double getSpindexerPower() {
+        return spindexerPower;
     }
 
     public void setFeederFlap(boolean feederFlapOut) {

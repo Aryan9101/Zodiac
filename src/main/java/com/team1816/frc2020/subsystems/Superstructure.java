@@ -61,8 +61,8 @@ public class Superstructure extends Subsystem {
     private synchronized void updateObservedState(SuperstructureState state) {
         state.shooterVelocity = shooter.getActualVelocity();
         state.turretAngle = turret.getTurretPositionDegrees();
-        state.elevatorIntake = hopper.getElevatorIntake(); //TODO: create method for checking hopper state
-        state.spindexerIntake = hopper.getSpindexerIntake();
+        state.elevatorVelocity = hopper.getElevatorPower();
+        state.spindexerVelocity = hopper.getSpindexerPower();
         state.collectorDeployed = collector.isDeployed();
     }
 
@@ -70,8 +70,8 @@ public class Superstructure extends Subsystem {
     synchronized void setFromCommandState(SuperstructureState commandState) {
         shooter.setVelocity(commandState.shooterVelocity);
         turret.setTurretAngle(commandState.turretAngle);
-        hopper.setElevator(commandState.elevatorIntake);
-        hopper.setSpindexer(commandState.spindexerIntake);
+        hopper.setElevator(commandState.elevatorVelocity);
+        hopper.setSpindexer(commandState.spindexerVelocity);
     }
 
     @Override
@@ -120,16 +120,16 @@ public class Superstructure extends Subsystem {
         System.err.println("Setting state to collecting mode!");
         setWantedAction(WantedAction.GO_TO_POSITION);
         stateMachine.setCollectorDeployed(true);
-        stateMachine.setSpindexerIntake(true);
-        stateMachine.setElevatorIntake(false);
+        stateMachine.setSpindexerIntake(1);
+        stateMachine.setElevatorIntake(0);
     }
 
     public synchronized void setDefaultMode() {
         System.err.print("Resetting state");
         setWantedAction(WantedAction.GO_TO_POSITION);
         stateMachine.setCollectorDeployed(false);
-        stateMachine.setSpindexerIntake(false);
-        stateMachine.setElevatorIntake(false);
+        stateMachine.setSpindexerIntake(0);
+        stateMachine.setElevatorIntake(0);
         stateMachine.setWantHoming(false);
         stateMachine.setShooterVelocity(0);
     }
@@ -139,8 +139,8 @@ public class Superstructure extends Subsystem {
         setWantedAction(WantedAction.GO_TO_POSITION);
         stateMachine.setWantHoming(true);
         stateMachine.setShooterVelocity(Shooter.SHOOT_VELOCITY);
-        stateMachine.setSpindexerIntake(true);
-        stateMachine.setElevatorIntake(true);
+        stateMachine.setSpindexerIntake(1);
+        stateMachine.setElevatorIntake(0);
     }
 
     @Override
