@@ -1,6 +1,5 @@
 package com.team1816.frc2020;
 
-import com.team1816.frc2020.subsystems.Drive;
 import com.team254.lib.geometry.Pose2d;
 import com.team254.lib.geometry.Rotation2d;
 import com.team254.lib.geometry.Translation2d;
@@ -11,6 +10,7 @@ import com.team254.lib.util.MovingAverageTwist2d;
 import com.team254.lib.vision.AimingParameters;
 import com.team254.lib.vision.GoalTracker;
 import com.team254.lib.vision.GoalTracker.TrackReportComparator;
+import com.team254.lib.vision.TargetInfo;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
@@ -76,11 +76,9 @@ public class RobotState {
     private MovingAverageTwist2d vehicle_velocity_measured_filtered_;
     private double distance_driven_;
 
-    private GoalTracker vision_target_low_ = new GoalTracker();
-    private GoalTracker vision_target_high_ = new GoalTracker();
+    private GoalTracker vision_target = new GoalTracker();
 
-    List<Translation2d> mCameraToVisionTargetPosesLow = new ArrayList<>();
-    List<Translation2d> mCameraToVisionTargetPosesHigh = new ArrayList<>();
+    List<Translation2d> mCameraToVisionTargetPoses = new ArrayList<>();
 
     private Rotation2d headingRelativeToInitial;
 
@@ -217,22 +215,20 @@ public class RobotState {
     }
 
     public synchronized void resetVision() {
-        vision_target_low_.reset();
-        vision_target_high_.reset();
+        vision_target.reset();
     }
 
     // use known field target orientations to compensate for inaccuracy, assumes robot starts pointing directly away
     // from and perpendicular to alliance wall
     private final double[] kPossibleTargetNormals = {0.0, 90.0, 180.0, 270.0, 30.0, 150.0, 210.0, 330.0};
 
-    public synchronized Pose2d getFieldToVisionTarget(boolean highTarget) {
-        GoalTracker tracker = highTarget ? vision_target_high_ : vision_target_low_;
+    public synchronized Pose2d getFieldToVisionTarget () {
 
-        if (!tracker.hasTracks()) {
+        if (!vision_target.hasTracks()) {
             return null;
         }
 
-        Pose2d fieldToTarget = tracker.getTracks().get(0).field_to_target;
+        Pose2d fieldToTarget = vision_target.getTracks().get(0).field_to_target;
 
         double normalPositive = (fieldToTarget.getRotation().getDegrees() + 360) % 360;
         double normalClamped = kPossibleTargetNormals[0];
@@ -245,8 +241,8 @@ public class RobotState {
         return new Pose2d(fieldToTarget.getTranslation(), Rotation2d.fromDegrees(normalClamped));
     }
 
-    public synchronized Pose2d getVehicleToVisionTarget(double timestamp, boolean highTarget) {
-        Pose2d fieldToVisionTarget = getFieldToVisionTarget(highTarget);
+    public synchronized Pose2d getVehicleToVisionTarget(double timestamp) {
+        Pose2d fieldToVisionTarget = getFieldToVisionTarget();
 
         if (fieldToVisionTarget == null) {
             return null;
@@ -255,9 +251,32 @@ public class RobotState {
         return getFieldToVehicle(timestamp).inverse().transformBy(fieldToVisionTarget);
     }
 
-    public synchronized Optional<AimingParameters> getAimingParameters(boolean highTarget, int prev_track_id, double max_track_age) {
-        GoalTracker tracker = highTarget ? vision_target_high_ : vision_target_low_;
-        List<GoalTracker.TrackReport> reports = tracker.getTracks();
+    private void updatePortGoalTracker(double timestamp, List<Translation2d> cameraToVisionTargetPoses, GoalTracker tracker) {
+        if (cameraToVisionTargetPoses.size() != 2 ||
+            cameraToVisionTargetPoses.get(0) == null ||
+            cameraToVisionTargetPoses.get(1) == null) return;
+        Pose2d cameraToVisionTarget = Pose2d.fromTranslation(cameraToVisionTargetPoses.get(0).interpolate(
+            cameraToVisionTargetPoses.get(1), 0.5));
+
+        Pose2d fieldToVisionTarget = getFieldToTurret(timestamp).transformBy(cameraToVisionTarget); //.transformBy(source.getTurretToLens()).transformBy(cameraToVisionTarget);
+        tracker.update(timestamp, List.of(new Pose2d(fieldToVisionTarget.getTranslation(), Rotation2d.identity())));
+    }
+
+    public synchronized void addVisionUpdate(double timestamp, TargetInfo observation) {
+        mCameraToVisionTargetPoses.clear();
+
+        if (observation == null) {
+            vision_target.update(timestamp, new ArrayList<>());
+            return;
+        }
+
+        mCameraToVisionTargetPoses.add(new Translation2d(observation.getX(), observation.getY()));
+
+
+        updatePortGoalTracker(timestamp, mCameraToVisionTargetPoses, vision_target); }
+
+    public synchronized Optional<AimingParameters> getAimingParameters(int prev_track_id, double max_track_age) {
+        List<GoalTracker.TrackReport> reports = vision_target.getTracks();
 
         if (reports.isEmpty()) {
             return Optional.empty();

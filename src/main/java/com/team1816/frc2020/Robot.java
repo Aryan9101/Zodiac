@@ -215,7 +215,7 @@ public class Robot extends TimedRobot {
                     ledManager.setCameraLed(pressed);
                     ledManager.indicateStatus(pressed ? LedManager.RobotStatus.SEEN_TARGET : LedManager.RobotStatus.ENABLED);
                     if (pressed) {
-                        turret.autoHome();
+                    //    turret.autoHome();
                     }
                 }),
 
@@ -319,7 +319,7 @@ public class Robot extends TimedRobot {
 
             mEnabledLooper.start();
 
-            turret.setTurretAngle(Turret.CARDINAL_NORTH);
+        //    turret.setTurretAngle(Turret.CARDINAL_NORTH);
 
             mInfrastructure.setIsManualControl(true);
             mControlBoard.reset();
