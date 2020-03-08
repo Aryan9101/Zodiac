@@ -15,7 +15,9 @@ net.setupCalib()
 zed = sl.Camera()
 point_cloud = sl.Mat()
 # Set configuration parameters
-init_params = sl.InitParameters()
+input_type = sl.InputType()
+input_type.set_from_svo_file('/home/ianmcvann/Documents/ZED/recent.svo')
+init_params = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
 init_params.depth_mode = sl.DEPTH_MODE.ULTRA  # Use PERFORMANCE depth mode
 init_params.coordinate_units = sl.UNIT.INCH  # Use milliliter units (for depth measurements)
 init_params.camera_resolution = sl.RESOLUTION.VGA
@@ -50,10 +52,9 @@ while True:
         if mask.all() == -1:
             continue
         contour = detector.findTarget(mask, zed, point_cloud)
-        stream_image = detector.postProcess(frame, contour)
         fpsCounter.update()
         fpsCounter.stop()
-        stream_image = fps.putIterationsPerSec(stream_image, fpsCounter.fps())
+        stream_image = fps.putIterationsPerSec(contour, fpsCounter.fps())
 
         if net.line:
             width = int(net.yml_data['stream']['line'])

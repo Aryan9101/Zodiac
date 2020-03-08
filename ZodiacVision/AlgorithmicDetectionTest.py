@@ -16,27 +16,6 @@ res = np.array([0])
 # The middle part should be close to 0 degrees, but often isn't
 # The right part usually has an angle around -60 degrees
 #
-def proc_part(part):
-    contours2, hier2 = cv2.findContours(part, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    if len(contours2) > 0:
-        cont2 = contours2[0]
-
-        rect = cv2.minAreaRect(cont2)
-        (x1, y1), (x2, y2), angle = rect
-        xa = x1 + x2 / 2
-
-        # angle = math.atan2(y1 - y2, x1-x2)
-        # math.degrees(angle)
-        # print(f"RECT: {rect}")
-        print(angle)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        # print(box)
-        return box, angle
-
-    return False, False
-
-
 def proc_img(mask, img):
     global res
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
