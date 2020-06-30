@@ -1,7 +1,6 @@
 package com.team1816.lib.hardware;
 
 import com.ctre.phoenix.ErrorCode;
-import com.ctre.phoenix.motorcontrol.IMotorController;
 import com.ctre.phoenix.motorcontrol.IMotorControllerEnhanced;
 import com.ctre.phoenix.motorcontrol.SupplyCurrentLimitConfiguration;
 import com.ctre.phoenix.motorcontrol.can.TalonFX;
@@ -30,9 +29,24 @@ public class MotorUtil {
     ) {
         var limitConfig = new SupplyCurrentLimitConfiguration(enabled, continuousCurrentLimit, peakCurrentLimit, peakThresholdSeconds);
         if (motor instanceof TalonFX) {
-            ((TalonFX) motor).configSupplyCurrentLimit(limitConfig);
+            checkError(
+                ((TalonFX) motor).configSupplyCurrentLimit(limitConfig),
+                "Unable to configure motor ID" + motor.getDeviceID() + " current limit"
+            );
         } else if (motor instanceof TalonSRX) {
-            ((TalonSRX) motor).configSupplyCurrentLimit(limitConfig);
+            checkError(
+                ((TalonSRX) motor).configSupplyCurrentLimit(limitConfig),
+                "Unable to configure motor ID" + motor.getDeviceID() + " current limit"
+            );
         }
+    }
+
+    public static double getSupplyCurrent(IMotorControllerEnhanced motor) {
+        if (motor instanceof TalonFX) {
+            return ((TalonFX) motor).getSupplyCurrent();
+        } else if (motor instanceof TalonSRX) {
+            return ((TalonSRX) motor).getSupplyCurrent();
+        }
+        return -1;
     }
 }

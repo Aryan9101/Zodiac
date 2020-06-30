@@ -82,4 +82,8 @@ public class Util {
         }
         return result;
     }
+
+    public static double bound0To2PIRadians(double radians) {
+        return Rotation2d.fromRadians(radians).getRadians();
+    }
 }
