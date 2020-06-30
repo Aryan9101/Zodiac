@@ -24,7 +24,7 @@ import com.team254.lib.control.Path;
 import com.team254.lib.control.PathFollower;
 import com.team254.lib.geometry.Pose2d;
 import com.team254.lib.geometry.Pose2dWithCurvature;
-import com.team254.lib.geometry.Rotation2d;
+import com.team1816.lib.geometry.Rotation2d;
 import com.team254.lib.geometry.Twist2d;
 import com.team254.lib.trajectory.TrajectoryIterator;
 import com.team254.lib.trajectory.timing.TimedState;

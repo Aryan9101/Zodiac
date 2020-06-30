@@ -1,8 +1,9 @@
 package com.team1816.frc2020;
 
-import com.team254.lib.geometry.Pose2d;
-import com.team254.lib.geometry.Rotation2d;
-import com.team254.lib.geometry.Twist2d;
+import com.team1816.frc2020.subsystems.Drive;
+import com.team1816.lib.geometry.Pose2d;
+import com.team1816.lib.geometry.Rotation2d;
+import com.team1816.lib.geometry.Twist2d;
 import com.team254.lib.util.DriveSignal;
 
 /**
@@ -11,6 +12,11 @@ import com.team254.lib.util.DriveSignal;
  */
 
 public class Kinematics {
+
+    private static final double L = Constants.kDriveWheelbase; //TODO: Constant needs to be made from distance from front of wheels to back
+    private static final double W = Constants.kDriveWheelTrackWidthInches;
+    private static final double R = Math.hypot(L, W);
+
     private static final double kEpsilon = 1E-9;
 
     /**
@@ -45,11 +51,52 @@ public class Kinematics {
     /**
      * Uses inverse kinematics to convert a Twist2d into left and right wheel velocities
      */
-    public static DriveSignal inverseKinematics(Twist2d velocity) {
-        if (Math.abs(velocity.dtheta) < kEpsilon) {
-            return new DriveSignal(velocity.dx, velocity.dx);
+
+    public static DriveSignal inverseKinematics(double forward, double strafe, double rotation,
+                                                boolean field_relative) {
+        return inverseKinematics(forward, strafe, rotation, field_relative, true);
+    }
+
+    public static DriveSignal inverseKinematics(double forward, double strafe, double rotation, boolean field_relative,
+                                                boolean normalize_outputs) {
+        if (field_relative) {
+            Rotation2d gyroHeading = Drive.getInstance().getHeading();
+            double temp = forward * gyroHeading.cos() + strafe * gyroHeading.sin();
+            strafe = -forward * gyroHeading.sin() + strafe * gyroHeading.cos();
+            forward = temp;
         }
-        double delta_v = Constants.kDriveWheelTrackWidthInches * velocity.dtheta / (2 * Constants.kTrackScrubFactor);
-        return new DriveSignal(velocity.dx - delta_v, velocity.dx + delta_v);
+
+        double A = strafe - rotation * L / R;
+        double B = strafe + rotation * L / R;
+        double C = forward - rotation * W / R;
+        double D = forward + rotation * W / R;
+
+        double[] wheel_speeds = new double[4];
+        wheel_speeds[0] = Math.hypot(B, C);
+        wheel_speeds[1] = Math.hypot(B, D);
+        wheel_speeds[2] = Math.hypot(A, D);
+        wheel_speeds[3] = Math.hypot(A, C);
+
+        // normalize wheel speeds if above 1
+        if (normalize_outputs) {
+            double max_speed = 1;
+            for (int i = 0; i < wheel_speeds.length; i++) {
+                if (Math.abs(wheel_speeds[i]) > max_speed) {
+                    max_speed = Math.abs(wheel_speeds[i]);
+                }
+            }
+
+            for (var i = 0; i < wheel_speeds.length; i++) {
+                wheel_speeds[i] /= max_speed;
+            }
+        }
+
+        Rotation2d[] wheel_azimuths = new Rotation2d[4];
+        wheel_azimuths[0] = Rotation2d.fromRadians(Math.atan2(B, C));
+        wheel_azimuths[1] = Rotation2d.fromRadians(Math.atan2(B, D));
+        wheel_azimuths[2] = Rotation2d.fromRadians(Math.atan2(A, D));
+        wheel_azimuths[3] = Rotation2d.fromRadians(Math.atan2(A, C));
+
+        return new DriveSignal(wheel_speeds, wheel_azimuths);
     }
 }

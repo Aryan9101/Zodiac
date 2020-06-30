@@ -108,6 +108,19 @@ public class Rotation2d implements IRotation2d<Rotation2d> {
         return Math.toDegrees(getRadians());
     }
 
+    public Rotation2d nearestPole() {
+        double pole_sin = 0.0;
+        double pole_cos = 0.0;
+        if (Math.abs(cos_angle_) > Math.abs(sin_angle_)) {
+            pole_cos = Math.signum(cos_angle_);
+            pole_sin = 0.0;
+        } else {
+            pole_cos = 0.0;
+            pole_sin = Math.signum(sin_angle_);
+        }
+        return new Rotation2d(pole_cos, pole_sin, false);
+    }
+
     /**
      * We can rotate this Rotation2d by adding together the effects of it and
      * another rotation.
